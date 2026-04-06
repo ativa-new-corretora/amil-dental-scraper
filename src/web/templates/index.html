@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amil Bot - Sistema de Automação</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <!-- Lucide Icons via CDN for simplicity, or we can use the SVGs directly like in the React example -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div style="padding: 0 1rem; display: flex; align-items: center; gap: 0.75rem;">
+                <div
+                    style="width: 56px; height: 56px; border-radius: 12px; background: white; display: flex; align-items: center; justify-content: center; padding: 4px; box-shadow: var(--shadow-sm); border: 1px solid #eee;">
+                    <span style="font-size: 2rem;">🏥</span>
+                </div>
+                <div>
+                    <h1 style="color: var(--primary); font-weight: 900; font-size: 1.4rem; line-height: 1;">AmilBot</h1>
+                    <p style="font-size: 0.7rem; color: var(--text-muted);">Painel Administrativo</p>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav" style="margin-top: 2rem;">
+                <a href="#dashboard" class="nav-item active" data-section="dashboard" style="cursor: pointer;">
+                    <i data-lucide="layout-dashboard" size="24"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#controles" class="nav-item" data-section="controles" style="cursor: pointer;">
+                    <i data-lucide="settings-2" size="24"></i>
+                    <span>Controles</span>
+                </a>
+                <a href="#estatisticas" class="nav-item" data-section="estatisticas" style="cursor: pointer;">
+                    <i data-lucide="bar-chart-3" size="24"></i>
+                    <span>Estatísticas</span>
+                </a>
+                <a href="#logs" class="nav-item" data-section="logs" style="cursor: pointer;">
+                    <i data-lucide="file-text" size="24"></i>
+                    <span>Logs</span>
+                </a>
+            </nav>
+
+
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="container">
+                <!-- Header Dinâmico -->
+                <header
+                    style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h2 id="page-title" style="font-size: 2rem; font-weight: 700; color: var(--primary-dark);">
+                            Dashboard</h2>
+                        <p id="page-subtitle" style="color: var(--text-muted);">Visão geral do sistema</p>
+                    </div>
+                    <div id="status-badge-container">
+                        <!-- Badge injetado via JS -->
+                        <div class="status-badge-large stopped" id="status-badge-large"
+                            style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 99px; background: var(--danger-light); color: var(--danger); font-weight: 600;">
+                            <span class="status-icon">⏸️</span>
+                            <span class="status-label">Parado</span>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- Dashboard Section -->
+                <section id="dashboard-section" class="content-section active">
+                    <!-- Cards Grid -->
+                    <div
+                        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                        <!-- Status Principal -->
+                        <div class="card">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                                <div>
+                                    <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.25rem;">Status
+                                    </h3>
+                                    <p style="color: var(--text-muted); font-size: 0.9rem;">Monitoramento em tempo real
+                                    </p>
+                                </div>
+                                <div
+                                    style="width: 40px; height: 40px; background: var(--primary-light); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--primary);">
+                                    <i data-lucide="activity"></i>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                                <div
+                                    style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--background); border-radius: 12px;">
+                                    <span style="color: var(--text-muted);">Cidade Atual</span>
+                                    <span style="font-weight: 600;" id="cidade-atual-dash">-</span>
+                                </div>
+                                <div
+                                    style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--background); border-radius: 12px;">
+                                    <span style="color: var(--text-muted);">Tempo Execução</span>
+                                    <span style="font-weight: 600; font-family: monospace;"
+                                        id="tempo-execucao">00:00:00</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Progresso -->
+                        <div class="card">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                                <div>
+                                    <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.25rem;">Progresso
+                                    </h3>
+                                    <p style="color: var(--text-muted); font-size: 0.9rem;">Cidades processadas</p>
+                                </div>
+                                <div
+                                    style="width: 40px; height: 40px; background: var(--secondary-light); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--secondary);">
+                                    <i data-lucide="percent"></i>
+                                </div>
+                            </div>
+
+                            <div style="margin-top: 1rem;">
+                                <div
+                                    style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-weight: 600;">
+                                    <span id="progresso-text"><span id="progresso-dash">0</span> / <span
+                                            id="total-dash">0</span></span>
+                                    <span id="progress-percent-dash" style="color: var(--primary);">0%</span>
+                                </div>
+                                <div
+                                    style="width: 100%; height: 12px; background: #e2e8f0; border-radius: 99px; overflow: hidden;">
+                                    <div id="progress-fill-dash"
+                                        style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--primary), var(--secondary)); transition: width 0.5s ease;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Ações Rápidas -->
+                        <div class="card">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                                <div>
+                                    <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.25rem;">Controle
+                                        Rápido</h3>
+                                    <p style="color: var(--text-muted); font-size: 0.9rem;">Ações imediatas</p>
+                                </div>
+                                <div
+                                    style="width: 40px; height: 40px; background: var(--warning-light); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--warning);">
+                                    <i data-lucide="zap"></i>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                                <button class="btn btn-primary" onclick="iniciarBot(true)" style="flex: 1;">
+                                    <i data-lucide="play"></i> Continuar
+                                </button>
+                                <button class="btn btn-outline" onclick="iniciarBot(false)" style="flex: 1;">
+                                    <i data-lucide="refresh-cw"></i> Reiniciar
+                                </button>
+                                <button id="btn-parar-dash" class="btn" onclick="pararBot()"
+                                    style="flex: 1; background: var(--danger); color: white;" disabled>
+                                    <i data-lucide="square"></i> Parar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Informações Extras (se necessário) -->
+                    <div id="progresso-info-card" class="card"
+                        style="display: none; border-left: 4px solid var(--primary);">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <i data-lucide="info" style="color: var(--primary);"></i>
+                                <div>
+                                    <h4 style="font-weight: 600;">Progresso Salvo</h4>
+                                    <p style="font-size: 0.9rem; color: var(--text-muted);">Última: <span
+                                            id="ultima-cidade-dash" style="font-weight: 700; color: var(--text);"> -
+                                        </span></p>
+                                </div>
+                            </div>
+                            <button class="btn btn-outline" onclick="limparProgresso()"
+                                style="padding: 0.5rem 1rem; font-size: 0.9rem;">
+                                Limpar
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Controles Section -->
+                <section id="controles-section" class="content-section" style="display: none;">
+                    <div style="display: grid; gap: 1.5rem;">
+                        <div class="card">
+                            <h3 style="margin-bottom: 1rem;">Gerenciamento de Execução</h3>
+                            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                                <button class="btn btn-primary" id="btn-iniciar-controles" onclick="iniciarBot(true)">
+                                    <i data-lucide="play-circle"></i> Continuar de Onde Parou
+                                </button>
+                                <button class="btn btn-outline" id="btn-iniciar-zero-controles"
+                                    onclick="iniciarBot(false)">
+                                    <i data-lucide="rotate-ccw"></i> Começar do Zero
+                                </button>
+                                <button class="btn" id="btn-parar-controles" onclick="pararBot()" disabled
+                                    style="background: var(--danger); color: white;">
+                                    <i data-lucide="stop-circle"></i> Parar Execução
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <h3 style="margin-bottom: 1rem;">Dados e Relatórios</h3>
+                            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                                <button class="btn btn-outline" onclick="regenerarPlanilha()">
+                                    <i data-lucide="file-spreadsheet"></i> Regenerar Planilha Completa
+                                </button>
+                                <button class="btn btn-primary" onclick="downloadPlanilha()">
+                                    <i data-lucide="download"></i> Baixar Planilha Atual
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Estatísticas Section -->
+                <section id="estatisticas-section" class="content-section" style="display: none;">
+                    <button class="btn btn-outline" onclick="atualizarEstatisticas()" style="margin-bottom: 1rem;">
+                        <i data-lucide="refresh-cw"></i> Atualizar Dados
+                    </button>
+
+                    <div class="card">
+                        <div style="text-align: center; padding: 2rem;">
+                            <h3 style="color: var(--text-muted);">Total de PDFs Gerados</h3>
+                            <div id="total-pdfs"
+                                style="font-size: 4rem; font-weight: 900; color: var(--primary); line-height: 1.2;">-
+                            </div>
+                            <p style="color: var(--text-muted); margin-top: 1rem;">Última atualização: <span
+                                    id="ultima-atualizacao">-</span></p>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>Por Estado</h3>
+                        <div id="estados-stats"
+                            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                            <div class="loading-state">Carregando...</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Logs Section -->
+                <section id="logs-section" class="content-section" style="display: none;">
+                    <div class="card"
+                        style="height: calc(100vh - 200px); display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+                        <div
+                            style="padding: 1rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                            <h3 style="margin: 0;">Terminal de Logs</h3>
+                            <div style="display: flex; gap: 1rem; align-items: center;">
+                                <label
+                                    style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none;">
+                                    <input type="checkbox" id="auto-scroll" checked>
+                                    <span style="font-size: 0.9rem;">Auto-scroll</span>
+                                </label>
+                                <button class="btn btn-outline" onclick="limparLogs()"
+                                    style="padding: 0.5rem; font-size: 0.8rem;">
+                                    <i data-lucide="trash-2"></i> Limpar
+                                </button>
+                            </div>
+                        </div>
+                        <div id="logs"
+                            style="flex: 1; overflow-y: auto; padding: 1rem; font-family: 'Consolas', monospace; font-size: 0.9rem; background: #1e1e1e; color: #d4d4d4;">
+                            <!-- Logs injected here -->
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Script Principal (Mantendo a lógica original + inicialização de ícones) -->
+    <script>
+        // Inicializar Lucide Icons
+        lucide.createIcons();
+
+        // Variáveis Globais
+        let intervaloStatus;
+        let ultimoErroMostrado = null;
+        let inicioExecucao = null;
+        let intervaloRelogio = null;
+        let tempoFinalSalvo = null;
+
+        // Navigation
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                // Se for botão de sair, ignorar navegação de rota
+                if (item.textContent.includes('Sair')) return;
+
+                e.preventDefault();
+                const section = item.dataset.section;
+                if (!section) return;
+
+                // Update nav
+                document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+                item.classList.add('active');
+
+                // Update sections
+                document.querySelectorAll('.content-section').forEach(sec => sec.style.display = 'none');
+                document.getElementById(`${section}-section`).style.display = 'block';
+
+                // Update header
+                const titles = {
+                    dashboard: { title: 'Dashboard', subtitle: 'Visão geral do sistema' },
+                    controles: { title: 'Controles', subtitle: 'Gerencie a execução do bot' },
+                    estatisticas: { title: 'Estatísticas', subtitle: 'Dados detalhados do processamento' },
+                    logs: { title: 'Logs', subtitle: 'Registros em tempo real' }
+                };
+
+                const titleEl = document.getElementById('page-title');
+                const subEl = document.getElementById('page-subtitle');
+
+                if (titleEl) titleEl.textContent = titles[section].title;
+                if (subEl) subEl.textContent = titles[section].subtitle;
+            });
+        });
+
+        function atualizarStatus() {
+            fetch('/api/status')
+                .then(r => r.json())
+                .then(data => {
+                    // Status badge
+                    const statusBadge = document.getElementById('status-badge-large');
+
+                    if (data.rodando) {
+                        statusBadge.innerHTML = '<span class="status-icon">▶️</span><span class="status-label">Em Execução</span>';
+                        statusBadge.style.background = 'var(--secondary-light)';
+                        statusBadge.style.color = 'var(--secondary)';
+
+                        if (!inicioExecucao) inicioExecucao = new Date(data.inicio || new Date());
+                        if (!intervaloRelogio) {
+                            intervaloRelogio = setInterval(atualizarRelogio, 1000);
+                        }
+                        tempoFinalSalvo = null;
+                    } else {
+                        statusBadge.innerHTML = '<span class="status-icon">⏸️</span><span class="status-label">Parado</span>';
+                        statusBadge.style.background = 'var(--danger-light)';
+                        statusBadge.style.color = 'var(--danger)';
+
+                        if (data.tempo_execucao_final) {
+                            tempoFinalSalvo = data.tempo_execucao_final;
+                        }
+
+                        if (intervaloRelogio) {
+                            clearInterval(intervaloRelogio);
+                            intervaloRelogio = null;
+                        }
+
+                        if (tempoFinalSalvo) {
+                            document.getElementById('tempo-execucao').textContent = tempoFinalSalvo;
+                        } else if (inicioExecucao) {
+                            const agora = new Date();
+                            const diff = Math.floor((agora - inicioExecucao) / 1000);
+                            const horas = Math.floor(diff / 3600);
+                            const minutos = Math.floor((diff % 3600) / 60);
+                            const segundos = diff % 60;
+                            const tempoFormatado = `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}:${String(segundos).padStart(2, '0')}`;
+                            document.getElementById('tempo-execucao').textContent = tempoFormatado;
+                        }
+
+                        inicioExecucao = null;
+                    }
+
+                    // Cidade atual
+                    const cidadeAtual = data.cidade_atual ? `${data.cidade_atual}-${data.uf_atual}` : '-';
+                    document.getElementById('cidade-atual-dash').textContent = cidadeAtual;
+
+                    // Progresso
+                    document.getElementById('progresso-dash').textContent = data.progresso;
+                    document.getElementById('total-dash').textContent = data.total;
+
+                    const porcentagem = data.total > 0 ? (data.progresso / data.total) * 100 : 0;
+                    document.getElementById('progress-fill-dash').style.width = porcentagem + '%';
+                    document.getElementById('progress-percent-dash').textContent = Math.round(porcentagem) + '%';
+
+                    // Botões
+                    const btnPararDash = document.getElementById('btn-parar-dash');
+                    const btnPararControles = document.getElementById('btn-parar-controles');
+                    const btnIniciarControles = document.getElementById('btn-iniciar-controles');
+                    const btnIniciarZeroControles = document.getElementById('btn-iniciar-zero-controles');
+
+                    if (btnPararDash) btnPararDash.disabled = !data.rodando;
+                    if (btnPararControles) btnPararControles.disabled = !data.rodando;
+                    if (btnIniciarControles) btnIniciarControles.disabled = data.rodando;
+                    if (btnIniciarZeroControles) btnIniciarZeroControles.disabled = data.rodando;
+
+                    // Erro
+                    if (data.erro && data.erro !== ultimoErroMostrado) {
+                        ultimoErroMostrado = data.erro;
+                        mostrarNotificacao('Erro: ' + data.erro, 'error');
+                        fetch('/api/limpar-erro', { method: 'POST' }).catch(() => { });
+                    } else if (!data.erro) {
+                        ultimoErroMostrado = null;
+                    }
+
+                    // Logs
+                    if (data.log && data.log.length > 0) {
+                        const logsDiv = document.getElementById('logs');
+                        const logs = data.log.slice(-100).reverse();
+
+                        logsDiv.innerHTML = logs.map(log => {
+                            if (typeof log === 'string') {
+                                // Tentar parsear o formato padrão [HH:MM:SS] Mensagem
+                                const match = log.match(/^\[(\d{2}:\d{2}:\d{2})\]\s*(.+)$/);
+                                let timestamp = '--:--:--';
+                                let message = log;
+                                let color = '#d4d4d4'; // default text
+
+                                if (match) {
+                                    timestamp = match[1];
+                                    message = match[2];
+                                }
+
+                                if (message.includes('✅') || message.includes('sucesso')) color = '#4ade80'; // green
+                                else if (message.includes('❌') || message.includes('Erro')) color = '#f87171'; // red
+                                else if (message.includes('⚠️') || message.includes('Aviso')) color = '#facc15'; // yellow
+                                else if (message.includes('🔍')) color = '#60a5fa'; // blue
+
+                                return `<div style="margin-bottom: 4px; border-bottom: 1px solid #333; padding-bottom: 4px;">
+                                            <span style="color: #666; font-size: 0.8em; margin-right: 8px;">${timestamp}</span>
+                                            <span style="color: ${color};">${escapeHtml(message)}</span>
+                                        </div>`;
+                            }
+                            return `<div>${escapeHtml(String(log))}</div>`;
+                        }).join('');
+
+                        if (document.getElementById('auto-scroll').checked) {
+                            logsDiv.scrollTop = 0; // Inverso por causa do reverse() visualmente ou scroll correto
+                        }
+                    }
+
+                    atualizarProgressoInfo();
+                })
+                .catch(err => console.error('Erro ao atualizar status:', err));
+        }
+
+        function atualizarRelogio() {
+            if (inicioExecucao) {
+                const agora = new Date();
+                const diff = Math.floor((agora - inicioExecucao) / 1000);
+                const horas = Math.floor(diff / 3600);
+                const minutos = Math.floor((diff % 3600) / 60);
+                const segundos = diff % 60;
+                const tempoFormatado = `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}:${String(segundos).padStart(2, '0')}`;
+                const el = document.getElementById('tempo-execucao');
+                if (el) el.textContent = tempoFormatado;
+            }
+        }
+
+        function iniciarBot(continuarProgresso = true) {
+            const mensagem = continuarProgresso
+                ? 'Deseja continuar de onde parou?'
+                : 'Deseja começar do zero? (Isso limpará o progresso anterior)';
+
+            if (!confirm(mensagem + '\n\nIsso pode levar várias horas.')) {
+                return;
+            }
+
+            tempoFinalSalvo = null;
+            inicioExecucao = null;
+            const tempoEl = document.getElementById('tempo-execucao');
+            if (tempoEl) tempoEl.textContent = '00:00:00';
+
+            ultimoErroMostrado = null;
+
+            fetch('/api/iniciar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ continuar_progresso: continuarProgresso })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    mostrarNotificacao(data.mensagem || data.erro, data.erro ? 'error' : 'success');
+                    if (!data.erro) {
+                        if (intervaloStatus) clearInterval(intervaloStatus);
+                        intervaloStatus = setInterval(atualizarStatus, 2000);
+                    }
+                })
+                .catch(err => {
+                    mostrarNotificacao('Erro ao iniciar bot: ' + err, 'error');
+                });
+        }
+
+        function pararBot() {
+            if (!confirm('Deseja parar a execução do bot?')) {
+                return;
+            }
+
+            ultimoErroMostrado = null;
+
+            fetch('/api/parar', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    if (intervaloStatus) {
+                        clearInterval(intervaloStatus);
+                    }
+                    atualizarStatus();
+                    intervaloStatus = setInterval(atualizarStatus, 2000);
+                });
+        }
+
+        function limparProgresso() {
+            if (!confirm('Deseja limpar o progresso salvo? Isso fará o bot começar do zero na próxima execução.')) {
+                return;
+            }
+
+            fetch('/api/limpar-progresso', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    mostrarNotificacao(data.mensagem, 'success');
+                    atualizarProgressoInfo();
+                });
+        }
+
+        function atualizarEstatisticas() {
+            const totalPdfsEl = document.getElementById('total-pdfs');
+            const estadosDiv = document.getElementById('estados-stats');
+            const totalPdfsDash = document.getElementById('total-pdfs-dash');
+
+            if (totalPdfsEl) totalPdfsEl.textContent = 'Carregando...';
+            if (totalPdfsDash) totalPdfsDash.textContent = 'Carregando...';
+            if (estadosDiv) estadosDiv.innerHTML = '<div class="loading-state">Carregando estatísticas...</div>';
+
+            fetch('/api/estatisticas')
+                .then(r => {
+                    if (!r.ok) throw new Error(`Erro HTTP: ${r.status}`);
+                    return r.json();
+                })
+                .then(data => {
+                    if (data.erro) {
+                        if (totalPdfsEl) totalPdfsEl.textContent = 'Erro';
+                        if (estadosDiv) estadosDiv.innerHTML = `<div class="error-state">Erro: ${data.erro}</div>`;
+                        return;
+                    }
+
+                    const total = data.total_pdfs || 0;
+                    if (totalPdfsEl) totalPdfsEl.textContent = total.toLocaleString('pt-BR');
+                    if (totalPdfsDash) totalPdfsDash.textContent = total.toLocaleString('pt-BR');
+
+                    if (data.estados && Object.keys(data.estados).length > 0) {
+                        const estadosArray = Object.entries(data.estados).sort((a, b) => b[1] - a[1]);
+                        if (estadosDiv) {
+                            estadosDiv.innerHTML = estadosArray.map(([uf, count]) =>
+                                `<div style="background: white; padding: 0.75rem; border-radius: 8px; box-shadow: var(--shadow-sm); display: flex; justify-content: space-between; align-items: center; border: 1px solid #eee;">
+                                    <span style="font-weight: 700; color: var(--primary);">${uf}</span>
+                                    <span style="font-size: 0.9rem; color: var(--text-muted);">${count.toLocaleString('pt-BR')}</span>
+                                </div>`
+                            ).join('');
+                        }
+                    } else {
+                        if (estadosDiv) estadosDiv.innerHTML = '<div class="empty-state">Nenhum PDF encontrado</div>';
+                    }
+
+                    const updateEl = document.getElementById('ultima-atualizacao');
+                    if (updateEl) updateEl.textContent = new Date().toLocaleString('pt-BR');
+                })
+                .catch(err => {
+                    if (estadosDiv) estadosDiv.innerHTML = `<div class="error-state">Erro ao carregar: ${err.message}</div>`;
+                });
+        }
+
+        function atualizarProgressoInfo() {
+            fetch('/api/progresso')
+                .then(r => {
+                    if (!r.ok) throw new Error(`Erro HTTP: ${r.status}`);
+                    return r.json();
+                })
+                .then(data => {
+                    const infoCard = document.getElementById('progresso-info-card');
+                    const cidadeSpan = document.getElementById('ultima-cidade-dash');
+
+                    if (data.progresso && infoCard && cidadeSpan) {
+                        cidadeSpan.textContent = `${data.progresso.cidade}-${data.progresso.uf}`;
+                        infoCard.style.display = 'block';
+                    } else if (infoCard) {
+                        infoCard.style.display = 'none';
+                    }
+                })
+                .catch(err => console.error('Erro ao atualizar progresso:', err));
+        }
+
+        function regenerarPlanilha() {
+            if (!confirm('Deseja regenerar a planilha baseada em todos os PDFs existentes?')) {
+                return;
+            }
+
+            mostrarNotificacao('Regenerando planilha...', 'info');
+
+            fetch('/api/regenerar-planilha', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.sucesso) {
+                        mostrarNotificacao(data.mensagem, 'success');
+                    } else {
+                        mostrarNotificacao('Erro: ' + (data.erro || 'Erro desconhecido'), 'error');
+                    }
+                })
+                .catch(err => {
+                    mostrarNotificacao('Erro ao regenerar planilha: ' + err, 'error');
+                });
+        }
+
+        function downloadPlanilha() {
+            window.location.href = '/api/planilha';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function mostrarNotificacao(mensagem, tipo = 'info') {
+            const notificacao = document.createElement('div');
+            notificacao.style.position = 'fixed';
+            notificacao.style.bottom = '20px';
+            notificacao.style.right = '20px';
+            notificacao.style.padding = '1rem 1.5rem';
+            notificacao.style.borderRadius = '12px';
+            notificacao.style.color = 'white';
+            notificacao.style.fontWeight = '500';
+            notificacao.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1)';
+            notificacao.style.zIndex = '9999';
+            notificacao.style.opacity = '0';
+            notificacao.style.transform = 'translateY(20px)';
+            notificacao.style.transition = 'all 0.3s ease';
+
+            if (tipo === 'error') notificacao.style.background = 'var(--danger)';
+            else if (tipo === 'success') notificacao.style.background = 'var(--secondary)';
+            else notificacao.style.background = 'var(--primary)';
+
+            notificacao.textContent = mensagem;
+            document.body.appendChild(notificacao);
+
+            // Animate in
+            requestAnimationFrame(() => {
+                notificacao.style.opacity = '1';
+                notificacao.style.transform = 'translateY(0)';
+            });
+
+            setTimeout(() => {
+                notificacao.style.opacity = '0';
+                notificacao.style.transform = 'translateY(20px)';
+                setTimeout(() => notificacao.remove(), 300);
+            }, 3000);
+        }
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', () => {
+            atualizarStatus();
+            atualizarEstatisticas();
+            atualizarProgressoInfo();
+            if (!intervaloStatus) {
+                intervaloStatus = setInterval(atualizarStatus, 2000);
+            }
+        });
+    </script>
+</body>
+
+</html>

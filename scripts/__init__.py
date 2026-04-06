@@ -1,0 +1,2 @@
+# Scripts utilitários do projeto
+
