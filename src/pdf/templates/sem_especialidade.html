@@ -10,12 +10,29 @@
             color: #444;
             margin-bottom: 15px;
         }
+        .logo-bar {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .logo-bar img {
+            height: 60px;
+        }
+        .logo-amil {
+            height: 120px !important;
+        }
+        .logo-ativa {
+            height: 28px !important;
+        }
     </style>
 </head>
 <body>
 
-    <div class="ref">
-        <strong>Referência:</strong> {{REFERENCIA}}
+    <div class="logo-bar">
+        <img src="{{LOGO_AMIL}}" alt="Amil Dental" class="logo-amil">
+        <img src="{{LOGO_ATIVA}}" alt="Ativa New" class="logo-ativa">
     </div>
 
     <h1>Rede Credenciada - {{CIDADE}}/{{UF}}</h1>

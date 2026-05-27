@@ -215,20 +215,25 @@ def gerar_pdf_sem_telefone_vazio(uf: str, cidade: str) -> None:
     pdf_path = uf_dir / f"{nome_arquivo}.pdf"
     
     template = _carregar_template("sem_especialidade.html")
-    
+
     # Cabeçalho mês/ano
     hoje = datetime.now()
     mes_ano = hoje.strftime("%B / %Y").capitalize()
-    
+
+    logo_amil  = LOGO_AMIL.resolve().as_uri()
+    logo_ativa = LOGO_ATIVA.resolve().as_uri()
+
     html = (
         template
+        .replace("{{LOGO_AMIL}}", logo_amil)
+        .replace("{{LOGO_ATIVA}}", logo_ativa)
         .replace("{{REFERENCIA}}", mes_ano)
         .replace("{{CIDADE}}", cidade)
         .replace("{{UF}}", uf)
     )
-    
+
     options_pdf = {"enable-local-file-access": ""}
-    
+
     try:
         pdfkit.from_string(html, str(pdf_path), configuration=PDFKIT_CONFIG, options=options_pdf)
         print(f"✅ PDF sem telefone (vazio) salvo: {pdf_path}")
@@ -257,8 +262,13 @@ def gerar_pdf_sem_especialidade(uf: str,
     hoje = datetime.now()
     mes_ano = hoje.strftime("%B / %Y").capitalize()
 
+    logo_amil  = LOGO_AMIL.resolve().as_uri()
+    logo_ativa = LOGO_ATIVA.resolve().as_uri()
+
     html = (
         template
+        .replace("{{LOGO_AMIL}}", logo_amil)
+        .replace("{{LOGO_ATIVA}}", logo_ativa)
         .replace("{{REFERENCIA}}", mes_ano)
         .replace("{{CIDADE}}", cidade)
         .replace("{{UF}}", uf)

@@ -1,0 +1,208 @@
+{
+  "AC": [
+    "RIO BRANCO"
+  ],
+  "AL": [
+    "MACEIO",
+    "ARAPIRACA"
+  ],
+  "AM": [
+    "MANAUS"
+  ],
+  "AP": [
+    "MACAPA"
+  ],
+  "BA": [
+    "SALVADOR",
+    "FEIRA DE SANTANA",
+    "VITORIA DA CONQUISTA",
+    "CAMACARI",
+    "ITABUNA",
+    "ILHEUS",
+    "JUAZEIRO",
+    "LAURO DE FREITAS"
+  ],
+  "CE": [
+    "FORTALEZA",
+    "CAUCAIA",
+    "JUAZEIRO DO NORTE",
+    "MARACANAU",
+    "SOBRAL",
+    "CRATO"
+  ],
+  "DF": [
+    "BRASILIA"
+  ],
+  "ES": [
+    "VITORIA",
+    "VILA VELHA",
+    "SERRA",
+    "CARIACICA",
+    "LINHARES",
+    "CACHOEIRO DE ITAPEMIRIM"
+  ],
+  "GO": [
+    "GOIANIA",
+    "APARECIDA DE GOIANIA",
+    "ANAPOLIS",
+    "RIO VERDE",
+    "LUZIANIA"
+  ],
+  "MA": [
+    "SAO LUIS",
+    "IMPERATRIZ",
+    "TIMON",
+    "CAXIAS"
+  ],
+  "MG": [
+    "BELO HORIZONTE",
+    "UBERLANDIA",
+    "CONTAGEM",
+    "JUIZ DE FORA",
+    "BETIM",
+    "MONTES CLAROS",
+    "RIBEIRAO DAS NEVES",
+    "UBERABA",
+    "GOVERNADOR VALADARES",
+    "IPATINGA",
+    "SETE LAGOAS",
+    "DIVINOPOLIS"
+  ],
+  "MS": [
+    "CAMPO GRANDE",
+    "DOURADOS",
+    "TRES LAGOAS"
+  ],
+  "MT": [
+    "CUIABA",
+    "VARZEA GRANDE",
+    "RONDONOPOLIS",
+    "SINOP"
+  ],
+  "PA": [
+    "BELEM",
+    "ANANINDEUA",
+    "SANTAREM",
+    "MARABA",
+    "CASTANHAL"
+  ],
+  "PB": [
+    "JOAO PESSOA",
+    "CAMPINA GRANDE"
+  ],
+  "PE": [
+    "RECIFE",
+    "JABOATAO DOS GUARARAPES",
+    "OLINDA",
+    "CARUARU",
+    "PETROLINA",
+    "PAULISTA"
+  ],
+  "PI": [
+    "TERESINA",
+    "PARNAIBA",
+    "PICOS"
+  ],
+  "PR": [
+    "CURITIBA",
+    "LONDRINA",
+    "MARINGA",
+    "PONTA GROSSA",
+    "CASCAVEL",
+    "SAO JOSE DOS PINHAIS",
+    "FOZ DO IGUACU",
+    "COLOMBO",
+    "GUARAPUAVA"
+  ],
+  "RJ": [
+    "RIO DE JANEIRO",
+    "SAO GONCALO",
+    "DUQUE DE CAXIAS",
+    "NOVA IGUACU",
+    "NITEROI",
+    "BELFORD ROXO",
+    "CAMPOS DOS GOYTACAZES",
+    "SAO JOAO DE MERITI",
+    "PETROPOLIS",
+    "VOLTA REDONDA",
+    "MACAE"
+  ],
+  "RN": [
+    "NATAL",
+    "MOSSORO",
+    "PARNAMIRIM"
+  ],
+  "RO": [
+    "PORTO VELHO",
+    "JI-PARANA"
+  ],
+  "RR": [
+    "BOA VISTA"
+  ],
+  "RS": [
+    "PORTO ALEGRE",
+    "CANOAS",
+    "CAXIAS DO SUL",
+    "PELOTAS",
+    "SANTA MARIA",
+    "GRAVATAI",
+    "VIAMAO",
+    "NOVO HAMBURGO",
+    "SAO LEOPOLDO",
+    "PASSO FUNDO"
+  ],
+  "SC": [
+    "FLORIANOPOLIS",
+    "JOINVILLE",
+    "BLUMENAU",
+    "SAO JOSE",
+    "CRICIUMA",
+    "CHAPECO",
+    "ITAJAI",
+    "PALHOCA"
+  ],
+  "SE": [
+    "ARACAJU"
+  ],
+  "SP": [
+    "SAO PAULO",
+    "GUARULHOS",
+    "CAMPINAS",
+    "SAO BERNARDO DO CAMPO",
+    "SANTO ANDRE",
+    "OSASCO",
+    "RIBEIRAO PRETO",
+    "SOROCABA",
+    "MAUA",
+    "SAO JOSE DOS CAMPOS",
+    "SANTOS",
+    "MOGI DAS CRUZES",
+    "DIADEMA",
+    "JUNDIAI",
+    "CARAPICUIBA",
+    "PIRACICABA",
+    "BAURU",
+    "SAO JOSE DO RIO PRETO",
+    "GUARUJA",
+    "SAO VICENTE",
+    "LIMEIRA",
+    "TAUBATE",
+    "FRANCA",
+    "PRAIA GRANDE",
+    "SUZANO",
+    "TABAO DA SERRA",
+    "SUMARE",
+    "BARUERI",
+    "EMBU DAS ARTES",
+    "MARILIA",
+    "PRESIDENTE PRUDENTE",
+    "COTIA",
+    "AMERICANA",
+    "JACAREI"
+  ],
+  "TO": [
+    "PALMAS",
+    "ARAGUAINA",
+    "GURUPI"
+  ]
+}

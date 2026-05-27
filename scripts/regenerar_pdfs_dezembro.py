@@ -122,9 +122,14 @@ def gerar_pdf_com_referencia_fixa(uf: str, cidade: str, prestadores: list[dict] 
         # PDF vazio (sem especialidade)
         template = _carregar_template("sem_especialidade.html")
         mes_ano = mes_referencia
-        
+
+        logo_amil  = LOGO_AMIL.resolve().as_uri()
+        logo_ativa = LOGO_ATIVA.resolve().as_uri()
+
         html = (
             template
+            .replace("{{LOGO_AMIL}}", logo_amil)
+            .replace("{{LOGO_ATIVA}}", logo_ativa)
             .replace("{{REFERENCIA}}", mes_ano)
             .replace("{{CIDADE}}", cidade)
             .replace("{{UF}}", uf)

@@ -34,8 +34,13 @@ except ImportError as e:
 
 EXE_DIR = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent.parent
 
-# JSON de Cidades (deve estar na mesma pasta do EXE)
-CIDADES_JSON_LOCAL = EXE_DIR / "estados_cidades_amil.json"
+# JSON de Cidades: ao rodar como .exe, deve estar na mesma pasta; como script, está em config/
+if getattr(sys, 'frozen', False):
+    CIDADES_JSON_LOCAL     = EXE_DIR / "estados_cidades_amil.json"
+    ESTRATEGICO_JSON_LOCAL = EXE_DIR / "cidades_estrategicas.json"
+else:
+    CIDADES_JSON_LOCAL     = EXE_DIR / "config" / "estados_cidades_amil.json"
+    ESTRATEGICO_JSON_LOCAL = EXE_DIR / "config" / "cidades_estrategicas.json"
 
 # Pasta de Documentos (Saída)
 DOCUMENTOS_DIR = EXE_DIR / "documentos"
@@ -67,6 +72,23 @@ TEMPLATES_DIR = BASE_PATH / "src" / "pdf" / "templates"
 # ============================================================
 #  FUNÇÕES DE SUPORTE
 # ============================================================
+
+def _limpar_chrome():
+    """Mata processos órfãos do Chrome/chromedriver e limpa cache do undetected_chromedriver."""
+    import subprocess, shutil
+    for proc in ("undetected_chromedriver.exe", "chromedriver.exe"):
+        try:
+            subprocess.run(["taskkill", "/F", "/IM", proc, "/T"],
+                           capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        except Exception:
+            pass
+    try:
+        uc_cache = Path(os.getenv("APPDATA", "")) / "undetected_chromedriver"
+        if uc_cache.exists():
+            shutil.rmtree(uc_cache, ignore_errors=True)
+    except Exception:
+        pass
+
 
 def _carregar_template(nome_arquivo: str) -> str:
     caminho = TEMPLATES_DIR / nome_arquivo
@@ -103,7 +125,12 @@ def gerar_pdfs_cidade(uf: str, cidade: str, prestadores: list[dict], mes_referen
     if not prestadores:
         # Vazio
         template_v = _carregar_template("sem_especialidade.html")
-        html = template_v.replace("{{REFERENCIA}}", mes_html).replace("{{CIDADE}}", cidade).replace("{{UF}}", uf)
+        html = (template_v
+                .replace("{{LOGO_AMIL}}", logo_amil_uri)
+                .replace("{{LOGO_ATIVA}}", logo_ativa_uri)
+                .replace("{{REFERENCIA}}", mes_html)
+                .replace("{{CIDADE}}", cidade)
+                .replace("{{UF}}", uf))
         pdfkit.from_string(html, str(path_normal), configuration=PDFKIT_CONFIG, options=options_pdf)
         # Sem telefone (vazio também)
         pdfkit.from_string(html, str(path_sem_tel), configuration=PDFKIT_CONFIG, options=options_pdf)
@@ -207,21 +234,33 @@ def main():
     parser = argparse.ArgumentParser(description="Amil Scraper Portatil")
     parser.add_argument("--uf", nargs="*", help="Filtrar por UFs (ex: --uf AC AL)")
     parser.add_argument("--cidade", nargs="*", help="Filtrar por cidades (ex: --cidade \"RIO BRANCO\")")
-    parser.add_argument("--mes", default="Março / 2026", help="Mes de referencia no PDF")
+    parser.add_argument("--mes", default="Maio / 2026", help="Mes de referencia no PDF")
+    parser.add_argument("--estrategico", action="store_true",
+                        help="Usar apenas cidades estratégicas (capitais + grandes cidades ~112 cidades)")
     args = parser.parse_args()
 
     print("============================================================")
     print("      AMIL SCRAPER PORTATIL - Headless Edition")
     print("============================================================")
     
-    if not CIDADES_JSON_LOCAL.exists():
-        print(f"ERRO: Arquivo {CIDADES_JSON_LOCAL.name} nao encontrado na pasta do executavel!")
-        print("Por favor, coloque o arquivo JSON de cidades junto com este EXE.")
-        input("\nPressione Enter para sair...")
-        sys.exit(1)
+    # Selecionar JSON de cidades
+    if args.estrategico:
+        json_path = ESTRATEGICO_JSON_LOCAL
+        if not json_path.exists():
+            print(f"ERRO: Arquivo {json_path.name} nao encontrado!")
+            print("Execute sem --estrategico ou crie o arquivo config/cidades_estrategicas.json.")
+            input("\nPressione Enter para sair...")
+            sys.exit(1)
+    else:
+        json_path = CIDADES_JSON_LOCAL
+        if not json_path.exists():
+            print(f"ERRO: Arquivo {json_path.name} nao encontrado na pasta do executavel!")
+            print("Por favor, coloque o arquivo JSON de cidades junto com este EXE.")
+            input("\nPressione Enter para sair...")
+            sys.exit(1)
 
     # Carregar Cidades
-    with open(CIDADES_JSON_LOCAL, 'r', encoding='utf-8') as f:
+    with open(json_path, 'r', encoding='utf-8') as f:
         mapa = json.load(f)
 
     # Filtros
@@ -243,12 +282,13 @@ def main():
         print("Nenhuma cidade encontrada com os filtros informados.")
         sys.exit(0)
 
-    # NOVO: Determinar se deve forçar o re-processamento
-    # Se o usuário passou --uf ou --cidade, ele quer rodar especificamente aquelas, então sobrescrevemos.
-    force_rerun = True if (args.uf or args.cidade) else False
+    # Forçar re-processamento quando o usuário especificou quais cidades/estados quer rodar
+    # ou quando usou --estrategico (intenção é sempre scraping fresco das cidades prioritárias)
+    force_rerun = True if (args.uf or args.cidade or args.estrategico) else False
 
     print(f"Total de cidades a processar: {total_cidades}")
     print(f"Mes de referencia: {args.mes}")
+    print(f"Lista: {'ESTRATÉGICA (~112 cidades)' if args.estrategico else 'COMPLETA'}")
     print(f"Modo: {'Sobrescrever existentes' if force_rerun else 'Apenas novas (pular existentes)'}")
     print("Saida: pasta 'documentos/'")
     print("-" * 60)
@@ -277,68 +317,79 @@ def main():
             
             tentativa = 0
             sucesso = False
-            while tentativa < 2 and not sucesso:
+            MAX_TENTATIVAS = 3
+            while tentativa < MAX_TENTATIVAS and not sucesso:
                 tentativa += 1
                 bot = None
                 try:
                     bot = AmilBot(uf, logger=logger)
                     bot._abrir_navegador()
-                    
+
                     # Fluxo rápido de extração
                     bot._passo1()
                     time.sleep(1)
                     bot._passo2(cidade)
                     time.sleep(1)
-                    
+
                     try:
                         bot._passo3(cidade)
                         time.sleep(2)
-                        
-                        # Clicar Buscar
+
+                        # Clicar Buscar — clique humano (ActionChains), nunca JS
                         from selenium.webdriver.common.by import By
                         from selenium.webdriver.support.ui import WebDriverWait
                         from selenium.webdriver.support import expected_conditions as EC
-                        
+
                         btn = WebDriverWait(bot.driver, 10).until(
                             EC.element_to_be_clickable((By.CLASS_NAME, "test_btn_thirdstep_submit"))
                         )
-                        bot.driver.execute_script("arguments[0].click();", btn)
+                        bot._clicar_humano(btn)
                         time.sleep(5)
-                        
+
                         # Extrair blocos
                         blocos = bot.driver.find_elements(By.CLASS_NAME, "accredited-network__result")
                         blocos = [b for b in blocos if b.text.strip()]
-                        
+
                         prestadores = bot._extrair_prestadores(blocos) if blocos else None
 
                         if not prestadores:
-                            # Verificar se há mensagem de "Nenhum resultado" (indica erro/bloqueio)
                             try:
-                                msg_erro = bot.driver.find_elements(By.XPATH, "//*[contains(text(),'Nenhum resultado')]")
-                                if msg_erro:
-                                    raise Exception("Site retornou 'Nenhum resultado' - possivel bloqueio")
-                            except Exception as e:
-                                if "Nenhum resultado" in str(e): raise e
-                            
-                            # Se realmente não houver, levantamos erro para retry (até o limite de tentativas)
-                            raise Exception("Nenhum prestador encontrado (tentando novamente...)")
+                                msg = bot.driver.find_elements(By.XPATH, "//*[contains(text(),'Nenhum resultado')]")
+                                if msg:
+                                    raise Exception("Shadow block: site retornou 'Nenhum resultado'")
+                            except Exception as _e:
+                                if "Shadow block" in str(_e): raise _e
+                            raise Exception("Shadow block: nenhum prestador encontrado")
+
                     except Exception as e:
                         if "Especialidade" in str(e):
-                            prestadores = None # Sem especialidade
+                            prestadores = None  # cidade sem especialidade — não é erro
                         else:
                             raise e
 
                     # Gerar PDFs
                     gerar_pdfs_cidade(uf, cidade, prestadores, args.mes)
-                    
+
                     print(f"OK ({len(prestadores) if prestadores else 0} prestadores)")
                     sucesso = True
+
                 except Exception as e:
-                    if tentativa < 2:
-                        print(f"(Erro: {str(e)[:50]}... tentando novamente)", end=" ", flush=True)
-                        time.sleep(5)
+                    e_str = str(e)
+                    if tentativa < MAX_TENTATIVAS:
+                        eh_shadow = "Shadow block" in e_str or "prestador" in e_str.lower()
+                        espera = 35 if eh_shadow else 8
+                        print(f"(T{tentativa} — {'shadow block' if eh_shadow else 'erro'}; aguardando {espera}s)",
+                              end=" ", flush=True)
+                        # Fechar browser antes de limpar para evitar processos órfãos
+                        if bot:
+                            try: bot._fechar_navegador_completamente()
+                            except: pass
+                            bot = None
+                        _limpar_chrome()
+                        time.sleep(espera)
                     else:
-                        print(f"FALHA: {e}")
+                        print(f"FALHA definitiva: {e_str[:100]}")
+
                 finally:
                     if bot:
                         try:

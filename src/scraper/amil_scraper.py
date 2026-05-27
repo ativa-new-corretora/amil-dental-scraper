@@ -110,7 +110,47 @@ class AmilBot:
             except:
                 pass
 
-    # 🔥 NOVO — Verificar se há bloqueio/captcha
+    def _clicar_humano(self, elemento, desvio: int = 4) -> None:
+        """
+        Move o mouse de forma suave até o elemento e clica — sem execute_script.
+        Gera a cadeia completa de eventos do mouse que um humano produziria:
+        mouseover → mousemove → mouseenter → mousedown → mouseup → click.
+        """
+        from selenium.webdriver.common.action_chains import ActionChains
+
+        # Rolar suavemente até o elemento ficar visível (DOM, não JS click)
+        try:
+            self.driver.execute_script(
+                "arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});",
+                elemento
+            )
+            self._sleep(random.uniform(0.15, 0.30))
+        except Exception:
+            pass
+
+        try:
+            actions = ActionChains(self.driver)
+            # Primeiro move para ponto levemente deslocado (simula trajetória humana)
+            actions.move_to_element_with_offset(
+                elemento,
+                random.randint(-desvio, desvio),
+                random.randint(-desvio, desvio)
+            )
+            actions.pause(random.uniform(0.06, 0.14))
+            # Depois centraliza no elemento
+            actions.move_to_element(elemento)
+            actions.pause(random.uniform(0.05, 0.10))
+            actions.click()
+            actions.perform()
+        except Exception:
+            # Fallback 1: clique nativo do Selenium (ainda gera eventos de mouse)
+            try:
+                elemento.click()
+            except Exception:
+                # Fallback 2: JS apenas como último recurso
+                self.driver.execute_script("arguments[0].click();", elemento)
+
+    # Verificar se há bloqueio/captcha
     def _verificar_bloqueio(self) -> bool:
         """Verifica se o site bloqueou ou pediu captcha."""
         try:
@@ -245,10 +285,10 @@ class AmilBot:
         else:
             perfil_temp = None
         
+        # UA deve ser consistente com version_main= para evitar mismatch detectável
         ua = random.choice([
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
         ])
 
         proxy = self._escolher_proxy()
@@ -291,14 +331,14 @@ class AmilBot:
             except:
                 pass
 
-        # 🔥 CORREÇÃO — Tentar inicializar com version_main=146 PRIMEIRO
+        # 🔥 CORREÇÃO — Tentar inicializar com version_main=148 PRIMEIRO
         try:
-            self._log("🚀 Inicializando Chrome (tentativa 1: forçando version_main=146)...")
+            self._log("🚀 Inicializando Chrome (tentativa 1: forçando version_main=148)...")
             options = get_fresh_options()
             self.driver = uc.Chrome(
                 options=options, 
                 use_subprocess=True,
-                version_main=146
+                version_main=148
             )
         except Exception as e:
             self._log(f"⚠️ Erro na inicialização com v146: {e}")
@@ -313,7 +353,7 @@ class AmilBot:
                 self.driver = uc.Chrome(
                     options=options, 
                     use_subprocess=True,
-                    version_main=146
+                    version_main=148
                 )
             except Exception as e2:
                 self._log(f"⚠️ Erro na segunda tentativa: {e2}")
@@ -328,14 +368,17 @@ class AmilBot:
         
         self.wait = WebDriverWait(self.driver, 25)
         self.wait_dropdown = WebDriverWait(self.driver, 15)
-        
-        # 🔥 NOVO — Guardar caminho do perfil para limpar depois
+
+        # Guardar caminho do perfil para limpar depois
         self._perfil_temp = perfil_temp
 
-        # 🔥 CORREÇÃO — Aplicar stealth DEPOIS de carregar a página (não antes)
-        # apply_stealth(self.driver)  # REMOVIDO - aplicar depois
+        # CRÍTICO: stealth ANTES de driver.get() — Page.addScriptToEvaluateOnNewDocument
+        # precisa ser registrado antes que qualquer página carregue para funcionar.
+        try:
+            apply_stealth(self.driver)
+        except Exception as e:
+            self._log(f"⚠️ Erro ao aplicar stealth: {e}")
 
-        # 🔥 OTIMIZADO: Mais tempo antes de carregar página
         self._sleep(1.5)
 
         # 🔥 CORREÇÃO — Tentar carregar a página com retry
@@ -425,13 +468,6 @@ class AmilBot:
         if not pagina_carregou:
             raise Exception("Página não carregou corretamente após todas as tentativas")
         
-        # 🔥 CORREÇÃO — Aplicar stealth DEPOIS de carregar a página
-        try:
-            apply_stealth(self.driver)
-        except Exception as e:
-            self._log(f"⚠️ Erro ao aplicar stealth: {e}")
-        
-        # 🔥 OTIMIZADO: Mais tempo após carregar
         self._sleep(1.5)
 
         try:
@@ -456,7 +492,7 @@ class AmilBot:
     # ------------------------------------------------------
     #                   PROCESSAR CIDADE
     # ------------------------------------------------------
-    def processar_cidade(self, cidade: str) -> None:
+    def processar_cidade(self, cidade: str, _retries: int = 0) -> None:
         if self.stop_flag and self.stop_flag.is_set():
             self._log("⛔ Execução interrompida pelo usuário")
             raise Exception("Execução interrompida pelo usuário")
@@ -577,20 +613,22 @@ class AmilBot:
             self._log(f"⚠️ Falha em {cidade}-{self.uf}: {e}")
             self._log("🛑 Fechando navegador antes do cooldown...")
 
-            # 🔥 CORREÇÃO — Fechar navegador completamente
             self._fechar_navegador_completamente()
 
-            # 🔥 OTIMIZADO: Cooldown muito maior em caso de erro
-            cooldown = random.uniform(10, 20)  # Reduzido de 60-120s para 10-20s
-            self._log(f"⏳ Aguardando {cooldown:.1f} segundos para limpar fingerprint...")
+            # Shadow block: espera maior + limpeza agressiva de processos Chrome
+            eh_shadow = "prestador" in str(e).lower() or "resultado" in str(e).lower()
+            cooldown = random.uniform(30, 45) if eh_shadow else random.uniform(10, 20)
+            self._log(f"⏳ {'Shadow block detectado — ' if eh_shadow else ''}Aguardando {cooldown:.1f}s...")
             self._sleep(cooldown)
 
-            self._log("🔁 Reabrindo navegador e tentando novamente...")
-
-            try:
-                return self.processar_cidade(cidade)  # retry real
-            except Exception as e2:
-                self._log(f"❌ Falha definitiva em {cidade}-{self.uf}: {e2}")
+            if _retries < 2:  # máx 3 tentativas totais (0, 1, 2)
+                self._log(f"🔁 Tentativa {_retries + 2}/3 — reabrindo navegador...")
+                try:
+                    return self.processar_cidade(cidade, _retries + 1)
+                except Exception as e2:
+                    self._log(f"❌ Falha definitiva em {cidade}-{self.uf}: {e2}")
+            else:
+                self._log(f"❌ Falha definitiva em {cidade}-{self.uf} após 3 tentativas: {e}")
                 self.cidades_com_erro.setdefault(self.uf, []).append(cidade)
 
         finally:
@@ -615,71 +653,72 @@ class AmilBot:
     #                     PASSO 1
     # ------------------------------------------------------
     def _passo1(self):
-        # 🔥 NOVO — Verificar stop_flag antes de começar
         if self.stop_flag and self.stop_flag.is_set():
             raise Exception("Execução interrompida pelo usuário")
-        
+
         w = self.wait_dropdown
 
         try:
-            w.until(EC.element_to_be_clickable((By.CLASS_NAME, "rw-dropdown-list-input"))).click()
+            elem = w.until(EC.element_to_be_clickable((By.CLASS_NAME, "rw-dropdown-list-input")))
+            self._clicar_humano(elem)
         except Exception as e:
             if self.stop_flag and self.stop_flag.is_set():
                 raise Exception("Execução interrompida pelo usuário")
             raise Exception(f"Erro ao clicar em dropdown: {e}")
-        
-        delay_humano(0.15, 0.35, self.stop_flag)
-        
+
+        delay_humano(0.4, 0.9, self.stop_flag)
+
         if self.stop_flag and self.stop_flag.is_set():
             raise Exception("Execução interrompida pelo usuário")
 
         try:
-            w.until(EC.element_to_be_clickable((By.XPATH, "//li[text()='DENTAL']"))).click()
+            elem = w.until(EC.element_to_be_clickable((By.XPATH, "//li[text()='DENTAL']")))
+            self._clicar_humano(elem)
         except Exception as e:
             if self.stop_flag and self.stop_flag.is_set():
                 raise Exception("Execução interrompida pelo usuário")
             raise Exception(f"Erro ao selecionar DENTAL: {e}")
-        
-        delay_humano(0.15, 0.35, self.stop_flag)
-        
+
+        delay_humano(0.4, 0.9, self.stop_flag)
+
         if self.stop_flag and self.stop_flag.is_set():
             raise Exception("Execução interrompida pelo usuário")
 
         try:
             selects = w.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "rw-btn-select")))
-            selects[1].click()
+            self._clicar_humano(selects[1])
         except Exception as e:
             if self.stop_flag and self.stop_flag.is_set():
                 raise Exception("Execução interrompida pelo usuário")
             raise Exception(f"Erro ao clicar em selects: {e}")
-        
-        delay_humano(0.15, 0.35, self.stop_flag)
-        
+
+        delay_humano(0.55, 1.1, self.stop_flag)
+
         if self.stop_flag and self.stop_flag.is_set():
             raise Exception("Execução interrompida pelo usuário")
 
         try:
-            plano = w.until(EC.presence_of_element_located((By.XPATH, "//li[text()='Amil Dental Nacional']")))
-            self.driver.execute_script("arguments[0].click();", plano)
+            plano = w.until(EC.element_to_be_clickable((By.XPATH, "//li[text()='Amil Dental Nacional']")))
+            self._clicar_humano(plano)
         except Exception as e:
             if self.stop_flag and self.stop_flag.is_set():
                 raise Exception("Execução interrompida pelo usuário")
             raise Exception(f"Erro ao selecionar plano: {e}")
-        
-        delay_humano(0.15, 0.35, self.stop_flag)
-        
+
+        delay_humano(0.55, 1.1, self.stop_flag)
+
         if self.stop_flag and self.stop_flag.is_set():
             raise Exception("Execução interrompida pelo usuário")
 
         try:
             btn = self.wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "test_btn_firststep_submit")))
-            self.driver.execute_script("arguments[0].click();", btn)
+            self._clicar_humano(btn)
         except Exception as e:
             if self.stop_flag and self.stop_flag.is_set():
                 raise Exception("Execução interrompida pelo usuário")
             raise Exception(f"Erro ao clicar em botão submit: {e}")
-        
-        delay_humano(0.15, 0.35, self.stop_flag)
+
+        delay_humano(0.7, 1.4, self.stop_flag)
 
     def _escape_xpath_text(self, text: str) -> str:
         """Permite usar texto com apóstrofos no XPATH."""
@@ -692,48 +731,47 @@ class AmilBot:
     #                     PASSO 2
     # ------------------------------------------------------
     def _passo2(self, cidade: str):
-        # 🔥 NOVO — Verificar stop_flag antes de começar
         if self.stop_flag and self.stop_flag.is_set():
             raise Exception("Execução interrompida pelo usuário")
-        
+
         w = self.wait_dropdown
 
         try:
             estado = w.until(EC.element_to_be_clickable((By.XPATH, "//label[contains(text(),'Estado')]/following::button[1]")))
-            estado.click()
+            self._clicar_humano(estado)
         except Exception as e:
             if self.stop_flag and self.stop_flag.is_set():
                 raise Exception("Execução interrompida pelo usuário")
             raise Exception(f"Erro ao clicar em Estado: {e}")
-        
-        delay_humano(0.15, 0.35, self.stop_flag)
-        
+
+        delay_humano(0.4, 0.9, self.stop_flag)
+
         if self.stop_flag and self.stop_flag.is_set():
             raise Exception("Execução interrompida pelo usuário")
 
         try:
             uf_op = w.until(EC.element_to_be_clickable((By.XPATH, f"//li[text()='{self.uf}']")))
-            uf_op.click()
+            self._clicar_humano(uf_op)
         except Exception as e:
             if self.stop_flag and self.stop_flag.is_set():
                 raise Exception("Execução interrompida pelo usuário")
             raise Exception(f"Erro ao selecionar UF {self.uf}: {e}")
-        
-        delay_humano(0.15, 0.35, self.stop_flag)
-        
+
+        delay_humano(0.4, 0.9, self.stop_flag)
+
         if self.stop_flag and self.stop_flag.is_set():
             raise Exception("Execução interrompida pelo usuário")
 
         try:
             muni = w.until(EC.element_to_be_clickable((By.XPATH, "//label[contains(text(),'Municipio')]/following::button[1]")))
-            muni.click()
+            self._clicar_humano(muni)
         except Exception as e:
             if self.stop_flag and self.stop_flag.is_set():
                 raise Exception("Execução interrompida pelo usuário")
             raise Exception(f"Erro ao clicar em Município: {e}")
-        
-        delay_humano(0.15, 0.35, self.stop_flag)
-        
+
+        delay_humano(0.55, 1.1, self.stop_flag)
+
         if self.stop_flag and self.stop_flag.is_set():
             raise Exception("Execução interrompida pelo usuário")
 
@@ -742,52 +780,52 @@ class AmilBot:
             cidade_op = w.until(
                 EC.element_to_be_clickable((By.XPATH, f"//li[text()={xpath_cidade}]"))
             )
-            cidade_op.click()
+            self._clicar_humano(cidade_op)
         except Exception as e:
             if self.stop_flag and self.stop_flag.is_set():
                 raise Exception("Execução interrompida pelo usuário")
             raise Exception(f"Erro ao selecionar cidade {cidade}: {e}")
-        
-        delay_humano(0.15, 0.35, self.stop_flag)
-        
+
+        delay_humano(0.4, 0.9, self.stop_flag)
+
         if self.stop_flag and self.stop_flag.is_set():
             raise Exception("Execução interrompida pelo usuário")
 
         try:
             bairro = w.until(EC.element_to_be_clickable((By.XPATH, "//label[contains(text(),'Bairro')]/following::button[1]")))
-            bairro.click()
+            self._clicar_humano(bairro)
         except Exception as e:
             if self.stop_flag and self.stop_flag.is_set():
                 raise Exception("Execução interrompida pelo usuário")
             raise Exception(f"Erro ao clicar em Bairro: {e}")
-        
-        delay_humano(0.15, 0.35, self.stop_flag)
-        
+
+        delay_humano(0.4, 0.9, self.stop_flag)
+
         if self.stop_flag and self.stop_flag.is_set():
             raise Exception("Execução interrompida pelo usuário")
 
         try:
             todos = w.until(EC.element_to_be_clickable((By.XPATH, "//li[text()='TODOS OS BAIRROS']")))
-            todos.click()
+            self._clicar_humano(todos)
         except Exception as e:
             if self.stop_flag and self.stop_flag.is_set():
                 raise Exception("Execução interrompida pelo usuário")
             raise Exception(f"Erro ao selecionar TODOS OS BAIRROS: {e}")
-        
-        delay_humano(0.15, 0.35, self.stop_flag)
-        
+
+        delay_humano(0.55, 1.1, self.stop_flag)
+
         if self.stop_flag and self.stop_flag.is_set():
             raise Exception("Execução interrompida pelo usuário")
 
         try:
             cont = self.wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.test_btn_secondstep_submit")))
-            self.driver.execute_script("arguments[0].click();", cont)
+            self._clicar_humano(cont)
         except Exception as e:
             if self.stop_flag and self.stop_flag.is_set():
                 raise Exception("Execução interrompida pelo usuário")
             raise Exception(f"Erro ao clicar em botão continuar: {e}")
-        
-        delay_humano(0.2, 0.4, self.stop_flag)
+
+        delay_humano(0.7, 1.4, self.stop_flag)
 
     # ------------------------------------------------------
     #                     PASSO 3
@@ -798,8 +836,8 @@ class AmilBot:
         btn = w.until(
             EC.element_to_be_clickable((By.XPATH, "//label[contains(text(),'Especialidade')]/following::button[1]"))
         )
-        btn.click()
-        delay_humano(0.15, 0.35, self.stop_flag)
+        self._clicar_humano(btn)
+        delay_humano(0.4, 0.9, self.stop_flag)
 
         w.until(EC.presence_of_element_located((By.XPATH, "//ul[contains(@id,'listbox')]//li")))
 
@@ -824,15 +862,9 @@ class AmilBot:
             gerar_pdf_sem_especialidade(self.uf, cidade, self.pasta_base)
             raise Exception("Especialidade não encontrada")
 
-        self.driver.execute_script("arguments[0].scrollIntoView();", op)
-        delay_humano(0.15, 0.35, self.stop_flag)
-
-        try:
-            op.click()
-        except:
-            self.driver.execute_script("arguments[0].click();", op)
-
-        delay_humano(0.2, 0.4, self.stop_flag)
+        delay_humano(0.2, 0.45, self.stop_flag)
+        self._clicar_humano(op)
+        delay_humano(0.55, 1.1, self.stop_flag)
 
     # ------------------------------------------------------
     #          BUSCAR + CAPTURAR RESULTADOS
@@ -892,20 +924,10 @@ class AmilBot:
                 except:
                     raise Exception("Botão de buscar não encontrado")
             
-            # Movimento de mouse antes de clicar
-            try:
-                from selenium.webdriver.common.action_chains import ActionChains
-                actions = ActionChains(self.driver)
-                actions.move_to_element(btn).perform()
-                time.sleep(random.uniform(0.3, 0.7))
-            except:
-                pass
-            
-            # 🔥 NOVO — Verificar stop_flag antes de clicar
             if self.stop_flag and self.stop_flag.is_set():
                 raise Exception("Execução interrompida pelo usuário")
-            
-            self.driver.execute_script("arguments[0].click();", btn)
+
+            self._clicar_humano(btn)
 
             self._log("⏳ Aguardando resultados aparecerem...")
 

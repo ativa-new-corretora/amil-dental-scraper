@@ -57,8 +57,8 @@ def extrair_cidades_do_site() -> Dict[str, List[str]]:
     
     # Configurar Chrome
     ua = random.choice([
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
     ])
     
     options = build_chrome_options(user_agent=ua, proxy=None)
@@ -70,7 +70,7 @@ def extrair_cidades_do_site() -> Dict[str, List[str]]:
     
     try:
         print("🌐 Abrindo navegador...")
-        driver = uc.Chrome(options=options, use_subprocess=True, version_main=145)
+        driver = uc.Chrome(options=options, use_subprocess=True, version_main=148)
         wait = WebDriverWait(driver, 25)
         wait_dropdown = WebDriverWait(driver, 15)
         
@@ -88,28 +88,35 @@ def extrair_cidades_do_site() -> Dict[str, List[str]]:
         # PASSO 1: Selecionar DENTAL e Amil Dental Nacional
         print("\n📋 Passo 1: Selecionando DENTAL e Amil Dental Nacional...")
         
+        from selenium.webdriver.common.action_chains import ActionChains
+
+        def _clicar(elem):
+            ActionChains(driver).move_to_element(elem).pause(0.08).click().perform()
+
         # Clicar no dropdown de tipo
-        wait_dropdown.until(EC.element_to_be_clickable((By.CLASS_NAME, "rw-dropdown-list-input"))).click()
-        delay_humano(0.2, 0.3)
-        
+        elem = wait_dropdown.until(EC.element_to_be_clickable((By.CLASS_NAME, "rw-dropdown-list-input")))
+        _clicar(elem)
+        delay_humano(0.4, 0.7)
+
         # Selecionar DENTAL
-        wait_dropdown.until(EC.element_to_be_clickable((By.XPATH, "//li[text()='DENTAL']"))).click()
-        delay_humano(0.2, 0.3)
-        
+        elem = wait_dropdown.until(EC.element_to_be_clickable((By.XPATH, "//li[text()='DENTAL']")))
+        _clicar(elem)
+        delay_humano(0.4, 0.7)
+
         # Clicar no segundo select (plano)
         selects = wait_dropdown.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "rw-btn-select")))
-        selects[1].click()
-        delay_humano(0.2, 0.3)
-        
+        _clicar(selects[1])
+        delay_humano(0.5, 0.9)
+
         # Selecionar Amil Dental Nacional
-        plano = wait_dropdown.until(EC.presence_of_element_located((By.XPATH, "//li[text()='Amil Dental Nacional']")))
-        driver.execute_script("arguments[0].click();", plano)
-        delay_humano(0.2, 0.3)
-        
+        plano = wait_dropdown.until(EC.element_to_be_clickable((By.XPATH, "//li[text()='Amil Dental Nacional']")))
+        _clicar(plano)
+        delay_humano(0.5, 0.9)
+
         # Clicar em continuar
         btn = wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "test_btn_firststep_submit")))
-        driver.execute_script("arguments[0].click();", btn)
-        delay_humano(0.3, 0.5)
+        _clicar(btn)
+        delay_humano(0.6, 1.0)
         
         print("✅ Passo 1 concluído!\n")
         
@@ -124,20 +131,20 @@ def extrair_cidades_do_site() -> Dict[str, List[str]]:
                 estado_btn = wait_dropdown.until(
                     EC.element_to_be_clickable((By.XPATH, "//label[contains(text(),'Estado')]/following::button[1]"))
                 )
-                estado_btn.click()
-                delay_humano(0.2, 0.3)
-                
+                _clicar(estado_btn)
+                delay_humano(0.4, 0.7)
+
                 # Selecionar o estado
                 uf_option = wait_dropdown.until(EC.element_to_be_clickable((By.XPATH, f"//li[text()='{uf}']")))
-                uf_option.click()
-                delay_humano(0.3, 0.5)
-                
+                _clicar(uf_option)
+                delay_humano(0.4, 0.7)
+
                 # Clicar no dropdown de Município para ver as opções
                 muni_btn = wait_dropdown.until(
                     EC.element_to_be_clickable((By.XPATH, "//label[contains(text(),'Municipio')]/following::button[1]"))
                 )
-                muni_btn.click()
-                delay_humano(0.3, 0.5)
+                _clicar(muni_btn)
+                delay_humano(0.4, 0.7)
                 
                 # Aguardar lista de cidades aparecer
                 wait_dropdown.until(EC.presence_of_element_located((By.XPATH, "//ul[contains(@id,'listbox')]//li")))

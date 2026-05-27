@@ -26,6 +26,7 @@ dist/
 # ========================================
 docs/
 docs_pdfs/
+documentos/
 output/
 logs/
 *.pdf
@@ -53,3 +54,8 @@ desktop.ini
 # TESTES E TEMPORÁRIOS
 # ========================================
 teste/
+
+# ========================================
+# GUIAS LOCAIS (não versionar)
+# ========================================
+GUIA_OPERACOES.md

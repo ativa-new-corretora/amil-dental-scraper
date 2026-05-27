@@ -8,9 +8,11 @@ Automação para extrair prestadores da rede Amil Dental, gerar PDFs por cidade 
 
 | Requisito | Versão | Link |
 |---|---|---|
-| Python | 3.10+ | [python.org](https://www.python.org/downloads/) |
+| Python | **3.11** (recomendado) | [python.org](https://www.python.org/downloads/) |
 | Google Chrome | Qualquer | Precisa estar instalado na máquina |
 | Wkhtmltopdf | Qualquer | [wkhtmltopdf.org](https://wkhtmltopdf.org/downloads.html) |
+
+> **Atenção:** Use Python 3.11. O PyMuPDF (usado para leitura de PDFs) não tem wheel pré-compilado para versões mais novas e exigiria Visual Studio para compilar.
 
 O `wkhtmltopdf` precisa estar no PATH do Windows. Após instalar, confirme rodando `wkhtmltopdf --version` no terminal.
 
@@ -18,29 +20,53 @@ O `wkhtmltopdf` precisa estar no PATH do Windows. Após instalar, confirme rodan
 
 ## Instalação
 
-```bash
+```powershell
 git clone https://github.com/ativa-new-corretora/amil-dental-scraper.git
 cd amil-dental-scraper
 python -m venv venv
-.\venv\Scripts\activate
+.\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
 ---
 
-## Extração Completa
+## Scraper Portátil (uso principal)
 
-Roda o scraping de todas as cidades configuradas em `config/estados_cidades_amil.json`. Gera PDFs em `docs/pdfs/` e consolida tudo em planilha Excel. Salva progresso automaticamente e retoma de onde parou em caso de queda.
+Gera PDFs em `documentos/pdfs/` e `documentos/pdfs_sem_telefone/`. Pula automaticamente cidades que já têm PDF.
 
-```bash
+```powershell
+# Rodar para todas as cidades (pula existentes)
+.\venv\Scripts\python.exe scripts/amil_portable.py
+
+# Rodar apenas cidades estratégicas — capitais + grandes cidades (~112 cidades)
+# Sempre regenera, mesmo que o PDF já exista
+.\venv\Scripts\python.exe scripts/amil_portable.py --estrategico
+
+# Filtrar por estado(s)
+.\venv\Scripts\python.exe scripts/amil_portable.py --uf SP RJ MG
+
+# Filtrar por cidade específica
+.\venv\Scripts\python.exe scripts/amil_portable.py --uf SP --cidade "SAO PAULO"
+
+# Combinar: estado estratégico + estado específico
+.\venv\Scripts\python.exe scripts/amil_portable.py --estrategico --uf SP
+```
+
+> O scraper abre um navegador Chrome por cidade (headless), faz 3 tentativas em caso de shadow block com espera progressiva e limpeza completa de cookies/cache entre tentativas.
+
+---
+
+## Extração Completa (main.py)
+
+Roda o scraping de todas as cidades via `main.py`. Salva progresso e retoma de onde parou. Gera PDFs em `docs/pdfs/`.
+
+```powershell
 python main.py
 ```
 
 ### Com Dashboard Web
 
-Para acompanhar visualmente com interface no navegador (pausar, retomar, ver logs):
-
-```bash
+```powershell
 python src/web/app.py
 ```
 
@@ -48,113 +74,117 @@ Acesse `http://localhost:5000`.
 
 ---
 
-## Scripts Auxiliares
+## Scripts de Manutenção
 
-### Extrator de Cidades
+### Atualizar lista de cidades
 
-Extrai a lista de cidades disponíveis no site da Amil e atualiza `config/estados_cidades_amil.json`.
+Acessa o site da Amil e atualiza `config/estados_cidades_amil.json` com as cidades disponíveis. Execução: ~10-15 min.
 
-```bash
-python scripts/extrair_cidades.py
+```powershell
+.\venv\Scripts\python.exe scripts/extrair_cidades.py
 ```
 
-### Comparador de Cidades
+### Comparar cidades vs PDFs
 
-Compara as cidades do JSON com os PDFs já gerados. Identifica novas e removidas.
+Gera relatório mostrando quais cidades do JSON não têm PDF e quais PDFs não estão mais no JSON.
 
-```bash
-python scripts/comparar_cidades.py
+```powershell
+.\venv\Scripts\python.exe scripts/comparar_cidades.py
 ```
 
-### Gerador de PDFs sem Telefone
+### Limpar PDFs obsoletos
 
-Gera cópias dos PDFs existentes sem o campo telefone.
+Remove PDFs de cidades que saíram do JSON. Sem flag = dry-run (só lista sem apagar).
 
-```bash
-python scripts/gerar_pdfs_sem_telefone.py
+```powershell
+# Ver o que seria apagado
+.\venv\Scripts\python.exe scripts/limpar_pdfs_obsoletos.py
+
+# Apagar de verdade
+.\venv\Scripts\python.exe scripts/limpar_pdfs_obsoletos.py --deletar
 ```
 
-### Regenerador de PDFs
+### Regenerar todos os PDFs
 
-Regenera PDFs trocando o mês de referência sem refazer scraping.
+Relê os PDFs existentes e regenera com o template atual (útil após mudanças no layout).
+Aceita `--uf` para filtrar por estado e `--dry-run` para só contar sem gerar.
 
-```bash
-python scripts/regenerar_pdfs_dezembro.py
+```powershell
+.\venv\Scripts\python.exe scripts/atualizar_referencia.py
+.\venv\Scripts\python.exe scripts/atualizar_referencia.py --uf SP RJ
+.\venv\Scripts\python.exe scripts/atualizar_referencia.py --dry-run
 ```
 
-### Regenerador de Planilha
+### Regenerar planilha Excel
 
-Reconstrói a planilha Excel varrendo `docs/pdfs/`.
+Reconstrói a planilha varrendo `documentos/pdfs/`.
 
-```bash
-python scripts/regenerar_planilha.py
+```powershell
+.\venv\Scripts\python.exe scripts/regenerar_planilha.py
 ```
 
-### Listador de Cidades Grandes
+### Build do Executável (Portátil)
 
-Lista cidades com mais de 11 prestadores.
+Empacota o bot em EXE para rodar sem Python instalado.
 
-```bash
-python scripts/listar_cidades_grandes.py
-```
-
-### Smart Update
-
-Compara quantidade de prestadores entre PDF local e site. Se igual, só atualiza data. Se diferente, faz scraping. Para atualizações pontuais.
-
-```bash
-python scripts/smart_update.py
-python scripts/smart_update.py --uf AC AL BA
-python scripts/smart_update.py --mes "Abril / 2026"
+```powershell
+python build_exe.py
 ```
 
 ---
 
-## Build do Executável (Portátil)
+## Fluxo de Atualização Mensal
 
-Empacota o bot em EXE para rodar sem Python instalado.
+```powershell
+# 1. Atualizar lista de cidades do site Amil
+.\venv\Scripts\python.exe scripts/extrair_cidades.py
 
-```bash
-python build_exe.py
+# 2. Ver diferenças vs base de PDFs atual
+.\venv\Scripts\python.exe scripts/comparar_cidades.py
+
+# 3. Apagar PDFs obsoletos
+.\venv\Scripts\python.exe scripts/limpar_pdfs_obsoletos.py --deletar
+
+# 4. Gerar PDFs das cidades novas (pula existentes)
+.\venv\Scripts\python.exe scripts/amil_portable.py
+
+# 5. Regenerar todos com template atualizado
+.\venv\Scripts\python.exe scripts/atualizar_referencia.py
 ```
-
-Uso:
-```bash
-amil_bot_portatil.exe
-amil_bot_portatil.exe --uf SP RJ
-amil_bot_portatil.exe --mes "Abril / 2026"
-```
-
-Requer `estados_cidades_amil.json` na mesma pasta do EXE.
 
 ---
 
 ## Estrutura
 
 ```
-├── main.py                    # Extração completa (ponto de entrada)
-├── build_exe.py               # Build do executável
-├── requirements.txt           # Dependências
+├── main.py                         # Extração completa
+├── build_exe.py                    # Build do executável
+├── requirements.txt
 ├── config/
-│   └── estados_cidades_amil.json
+│   ├── estados_cidades_amil.json   # Lista completa de cidades (~968)
+│   └── cidades_estrategicas.json   # Capitais + grandes cidades (~112)
 ├── src/
 │   ├── scraper/
-│   │   ├── amil_scraper.py    # Bot (Selenium)
-│   │   ├── anti_bot.py        # Anti-detecção
-│   │   └── navegacao.py       # Navegação
+│   │   ├── amil_scraper.py         # Bot Selenium (3 tentativas, shadow block aware)
+│   │   ├── anti_bot.py             # Anti-detecção (stealth, canvas noise, WebGL)
+│   │   └── navegacao.py
 │   ├── pdf/
-│   │   ├── gerador_pdf.py     # Geração de PDFs
-│   │   └── templates/         # Templates HTML
+│   │   ├── gerador_pdf.py
+│   │   └── templates/              # prestadores.html, sem_especialidade.html
 │   ├── utils/
 │   │   ├── delays.py
 │   │   ├── file_manager.py
 │   │   └── logger.py
 │   └── web/
-│       ├── app.py             # Dashboard Flask
-│       ├── static/
-│       └── templates/
-├── scripts/                   # Scripts auxiliares
-└── assets/                    # Logos
+│       └── app.py                  # Dashboard Flask
+├── scripts/
+│   ├── amil_portable.py            # Scraper portátil (uso principal)
+│   ├── extrair_cidades.py          # Atualiza JSON de cidades
+│   ├── comparar_cidades.py         # Compara JSON vs PDFs
+│   ├── limpar_pdfs_obsoletos.py    # Remove PDFs de cidades removidas
+│   ├── atualizar_referencia.py     # Regenera PDFs com template atual
+│   └── regenerar_planilha.py       # Reconstrói planilha Excel
+└── assets/                         # Logos (amil_dental.jpg, logo_ativa.jpg)
 ```
 
-**Saídas (não versionadas):** `docs/`, `output/`, `logs/`
+**Saídas (não versionadas):** `documentos/`, `docs/`, `output/`, `logs/`

@@ -6,7 +6,10 @@ from datetime import datetime
 # Definir caminhos relativos ao projeto
 SCRIPT_DIR = Path(__file__).resolve().parent.parent
 JSON_PATH = SCRIPT_DIR / "config" / "estados_cidades_amil.json"
-PDFS_DIR = SCRIPT_DIR / "docs" / "pdfs"
+# Base de PDFs: 'documentos/pdfs' (portable script) ou 'docs/pdfs' (main.py)
+_pdfs_portable = SCRIPT_DIR / "documentos" / "pdfs"
+_pdfs_main     = SCRIPT_DIR / "docs" / "pdfs"
+PDFS_DIR = _pdfs_portable if _pdfs_portable.exists() else _pdfs_main
 OUTPUT_REPORT = SCRIPT_DIR / "output" / f"relatorio_cidades_diferenca_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
 
 def carregar_cidades_json(caminho):

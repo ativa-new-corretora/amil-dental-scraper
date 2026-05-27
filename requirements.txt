@@ -1,5 +1,5 @@
 selenium==4.17.2
-undetected-chromedriver==3.5.4
+undetected-chromedriver==3.5.5
 pdfkit==1.0.0
 PyMuPDF==1.24.8
 openpyxl
