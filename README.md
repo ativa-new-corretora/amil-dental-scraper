@@ -115,6 +115,42 @@ Aceita `--uf` para filtrar por estado e `--dry-run` para só contar sem gerar.
 .\venv\Scripts\python.exe scripts/atualizar_referencia.py --dry-run
 ```
 
+### PDFs separados por zona (SP e RJ)
+
+Quebra o PDF da capital em um PDF por zona — Norte, Sul, Leste, Oeste, Centro. Não faz scraping: relê o PDF que já existe em `documentos/pdfs/`, reagrupa pelo bairro e regera. Roda offline em segundos.
+
+```powershell
+# Gera tudo (SÃO PAULO e RIO DE JANEIRO), com e sem telefone
+.\venv\Scripts\python.exe scripts/gerar_pdfs_por_zona.py
+
+# Só conferir a contagem por zona, sem gerar PDF
+.\venv\Scripts\python.exe scripts/gerar_pdfs_por_zona.py --listar
+
+# Filtrar
+.\venv\Scripts\python.exe scripts/gerar_pdfs_por_zona.py --uf RJ --zona "ZONA SUL"
+
+# Incluir sub-regiões do Rio (Ilha do Governador, Grande Tijuca)
+.\venv\Scripts\python.exe scripts/gerar_pdfs_por_zona.py --sub
+```
+
+Saída em `documentos/pdfs_por_zona/{UF}/` e `documentos/pdfs_por_zona_sem_telefone/{UF}/`, espelhada em `docs/` para o GitHub Pages.
+
+O mapa bairro → zona fica em [config/zonas_bairros.json](config/zonas_bairros.json) e pode ser editado à mão. Bairro que não estiver lá cai no grupo `NÃO CLASSIFICADO` e é listado no fim da execução.
+
+### Mapear bairros novos para zonas
+
+Roda **antes** de `gerar_pdfs_por_zona.py` na atualização mensal. Compara os bairros dos PDFs com o config e sugere a zona dos que faltam, consultando o CEP no ViaCEP a partir do endereço real do prestador.
+
+```powershell
+# Dry-run: mostra o que falta e a sugestão
+.\venv\Scripts\python.exe scripts/mapear_zonas.py
+
+# Grava as sugestões no config
+.\venv\Scripts\python.exe scripts/mapear_zonas.py --aplicar
+```
+
+> A sugestão automática só vale para **São Paulo**, onde a faixa de CEP dos Correios acompanha as zonas. No **Rio** o CEP não acompanha (Realengo, Bangu e Praça Seca ficam na faixa 21xxx, que é "Zona Norte" pelos Correios, mas são Zona Oeste / Jacarepaguá), então o script apenas lista os bairros novos para classificação manual.
+
 ### Regenerar planilha Excel
 
 Reconstrói a planilha varrendo `documentos/pdfs/`.
@@ -150,6 +186,12 @@ python build_exe.py
 
 # 5. Regenerar todos com template atualizado
 .\venv\Scripts\python.exe scripts/atualizar_referencia.py
+
+# 6. Mapear bairros novos de SP/RJ para zonas
+.\venv\Scripts\python.exe scripts/mapear_zonas.py --aplicar
+
+# 7. Regerar os PDFs por zona de SP e RJ
+.\venv\Scripts\python.exe scripts/gerar_pdfs_por_zona.py --sub
 ```
 
 ---
@@ -162,7 +204,8 @@ python build_exe.py
 ├── requirements.txt
 ├── config/
 │   ├── estados_cidades_amil.json   # Lista completa de cidades (~968)
-│   └── cidades_estrategicas.json   # Capitais + grandes cidades (~112)
+│   ├── cidades_estrategicas.json   # Capitais + grandes cidades (~112)
+│   └── zonas_bairros.json          # Mapa bairro → zona (SP: 297, RJ: 87)
 ├── src/
 │   ├── scraper/
 │   │   ├── amil_scraper.py         # Bot Selenium (3 tentativas, shadow block aware)
@@ -183,6 +226,8 @@ python build_exe.py
 │   ├── comparar_cidades.py         # Compara JSON vs PDFs
 │   ├── limpar_pdfs_obsoletos.py    # Remove PDFs de cidades removidas
 │   ├── atualizar_referencia.py     # Regenera PDFs com template atual
+│   ├── gerar_pdfs_por_zona.py      # Quebra o PDF da capital por zona (SP/RJ)
+│   ├── mapear_zonas.py             # Mapeia bairros novos → zona via ViaCEP
 │   └── regenerar_planilha.py       # Reconstrói planilha Excel
 └── assets/                         # Logos (amil_dental.jpg, logo_ativa.jpg)
 ```
