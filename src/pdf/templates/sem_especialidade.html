@@ -5,10 +5,12 @@
         body { font-family: Arial, sans-serif; margin: 40px; }
         h1 { color: #004080; }
         p { font-size: 14px; }
-        .ref {
-            font-size: 14px;
-            color: #444;
-            margin-bottom: 15px;
+        .ref-mes {
+            position: absolute;
+            top: 0;
+            right: 0;
+            font-size: 11px;
+            color: #555;
         }
         .logo-bar {
             width: 100%;
@@ -29,6 +31,8 @@
     </style>
 </head>
 <body>
+
+    <div class="ref-mes">Referência: {{REFERENCIA}}</div>
 
     <div class="logo-bar">
         <img src="{{LOGO_AMIL}}" alt="Amil Dental" class="logo-amil">

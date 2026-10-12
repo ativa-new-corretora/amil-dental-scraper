@@ -80,6 +80,16 @@ def norm(texto: str) -> str:
     return re.sub(r"\s+", " ", texto).strip().upper()
 
 
+MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho",
+         "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
+
+
+def mes_referencia() -> str:
+    """Mês atual por extenso, sem depender do locale do Windows."""
+    hoje = datetime.now()
+    return f"{MESES[hoje.month - 1]} / {hoje.year}"
+
+
 def slug(texto: str) -> str:
     return norm(texto).replace(" ", "_").replace("/", "-")
 
@@ -150,7 +160,7 @@ def gerar_pdf(titulo: str, uf: str, prestadores: list[dict],
         template
         .replace("{{LOGO_AMIL}}", LOGO_AMIL.resolve().as_uri())
         .replace("{{LOGO_ATIVA}}", LOGO_ATIVA.resolve().as_uri())
-        .replace("{{REFERENCIA}}", datetime.now().strftime("%B / %Y").capitalize())
+        .replace("{{REFERENCIA}}", mes_referencia())
         .replace("{{CIDADE}}", titulo)
         .replace("{{UF}}", uf)
         .replace("{{TOTAL_PRESTADORES}}", str(len(prestadores)))

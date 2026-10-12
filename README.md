@@ -52,7 +52,32 @@ Gera PDFs em `documentos/pdfs/` e `documentos/pdfs_sem_telefone/`. Pula automati
 .\venv\Scripts\python.exe scripts/amil_portable.py --estrategico --uf SP
 ```
 
-> O scraper abre um navegador Chrome por cidade (headless), faz 3 tentativas em caso de shadow block com espera progressiva e limpeza completa de cookies/cache entre tentativas.
+> O scraper abre um navegador Chrome novo por cidade e faz até 3 tentativas em caso de shadow block, com espera e limpeza de cookies/cache entre elas. Cidades que falharem ganham uma segunda passada no fim (após 10 min) e a lista final fica em `documentos/logs/falhas.json`. Rodar de novo sem flags retoma de onde parou (pula quem já tem PDF). Use `--forcar` para refazer tudo.
+>
+> O mês de referência no PDF é o mês atual (mude com `--mes "Outubro / 2026"`). A versão do Chrome é detectada sozinha.
+
+### Rodar tudo em paralelo (mais rápido)
+
+Sobe N processos, cada um com seu Chrome oculto, divide as cidades entre eles e no fim gera a planilha e `documentos/logs/resumo_paralelo.txt`. Pula quem já tem PDF, então pode ser interrompido e rodado de novo.
+
+```powershell
+.\venv\Scripts\python.exe scripts/rodar_paralelo.py --workers 4
+# acompanhar:
+Get-Content documentos\logs\execucao_parte1.log -Wait -Tail 20 -Encoding UTF8
+```
+
+> **Sobre o bloqueio (shadow block):** o site da Amil usa o Akamai Bot Manager. As chamadas de estado/município/bairro sempre passam, mas a busca final (`RedeCredenciadaCredenciado`) volta **403** quando o sensor acha que é robô, e a tela mostra "Sua busca não localizou nenhum prestador". O que mais pesa é o movimento do mouse: o bot move em curva com dezenas de pontos (`_mover_mouse_curva`). A nota também cai com muitos acessos seguidos do mesmo IP, por isso há pausas e mais de 4 processos não compensa.
+
+### Deixar rodando em segundo plano
+
+Com `AMIL_JANELA_OCULTA=1` o Chrome abre fora da tela e não rouba o foco, então dá para usar o PC normalmente. O processo também impede o Windows de suspender enquanto roda.
+
+```powershell
+$env:AMIL_JANELA_OCULTA = "1"
+.\venv\Scripts\python.exe -u scripts/amil_portable.py
+# acompanhar em outro terminal (o script espelha a saída neste arquivo):
+Get-Content documentos\logs\execucao.log -Wait -Tail 20 -Encoding UTF8
+```
 
 ---
 

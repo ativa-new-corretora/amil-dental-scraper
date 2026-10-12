@@ -1,5 +1,90 @@
+import os
 import random
+import re
+from pathlib import Path
+
 from selenium.webdriver.chrome.options import Options
+
+
+def detectar_versao_chrome() -> int | None:
+    """
+    Descobre a versão principal (major) do Chrome instalado.
+    Lê a pasta de instalação (fonte confiável) e, se não achar, o registro —
+    o valor do registro pode ficar desatualizado depois de um auto-update.
+    Retorna None se não conseguir — o undetected_chromedriver resolve sozinho.
+    """
+    candidatos = [
+        Path(os.getenv("PROGRAMFILES", r"C:\Program Files")) / "Google/Chrome/Application",
+        Path(os.getenv("PROGRAMFILES(X86)", r"C:\Program Files (x86)")) / "Google/Chrome/Application",
+        Path(os.getenv("LOCALAPPDATA", "")) / "Google/Chrome/Application",
+    ]
+    for pasta in candidatos:
+        # A pasta Application tem uma subpasta com o nome da versão (ex.: 155.0.8059.39).
+        # Pode haver duas durante um update — vale a maior.
+        if pasta.exists():
+            versoes = [
+                int(sub.name.split(".")[0])
+                for sub in pasta.iterdir()
+                if sub.is_dir() and re.match(r"^\d+\.\d+\.\d+\.\d+$", sub.name)
+            ]
+            if versoes:
+                return max(versoes)
+
+    try:
+        import winreg
+        for raiz in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
+            try:
+                with winreg.OpenKey(raiz, r"Software\Google\Chrome\BLBeacon") as chave:
+                    versao, _ = winreg.QueryValueEx(chave, "version")
+                    return int(str(versao).split(".")[0])
+            except OSError:
+                continue
+    except ImportError:
+        pass
+    return None
+
+
+def user_agent_para_versao(versao: int | None) -> str | None:
+    """UA coerente com o Chrome real — UA de outra versão é um mismatch detectável."""
+    if not versao:
+        return None
+    return (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        f"(KHTML, like Gecko) Chrome/{versao}.0.0.0 Safari/537.36"
+    )
+
+
+def preparar_driver_proprio(tag: str) -> str | None:
+    """
+    Copia o chromedriver já patcheado para um arquivo exclusivo deste processo.
+
+    Sem isso o undetected_chromedriver apaga e baixa de novo o mesmo
+    undetected_chromedriver.exe a cada navegador aberto: fica lento e dois
+    processos em paralelo brigam pelo mesmo arquivo. Retorna o caminho da
+    cópia, ou None se ainda não houver um driver baixado (o UC baixa sozinho).
+    """
+    import shutil
+    pasta = Path(os.getenv("APPDATA", "")) / "undetected_chromedriver"
+    origem = pasta / "undetected_chromedriver.exe"
+    if not origem.exists():
+        return None
+    destino = pasta / "fixos" / f"chromedriver_{tag}.exe"
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        shutil.copy2(origem, destino)
+    except PermissionError:
+        # cópia anterior ainda em uso por um Chrome desta mesma tag — serve
+        pass
+    return str(destino) if destino.exists() else None
+
+
+def janela_oculta() -> bool:
+    """
+    AMIL_JANELA_OCULTA=1 abre o Chrome fora da área visível da tela.
+    Continua sendo um Chrome "com janela" (não headless, que é mais fácil de
+    detectar), mas não rouba o foco nem atrapalha quem está usando o PC.
+    """
+    return os.getenv("AMIL_JANELA_OCULTA", "0") == "1"
 
 
 def build_chrome_options(
@@ -11,9 +96,21 @@ def build_chrome_options(
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-gpu")
     options.add_argument("--lang=pt-BR")
-    options.add_argument("--start-maximized")
+    if janela_oculta():
+        options.add_argument("--window-position=-32000,-32000")
+        # Sem isso o Chrome reduz o ritmo de páginas em janelas que não estão visíveis
+        options.add_argument("--disable-backgrounding-occluded-windows")
+        options.add_argument("--disable-renderer-backgrounding")
+        options.add_argument("--disable-background-timer-throttling")
+    else:
+        options.add_argument("--start-maximized")
     options.add_argument("--disable-infobars")
-    options.add_argument("--disable-features=IsolateOrigins,site-per-process")
+    # Só o último --disable-features vale, por isso tudo numa linha só
+    features_off = ["IsolateOrigins", "site-per-process"]
+    if janela_oculta():
+        # Sem isso o Windows marca a janela fora da tela como ocluída e o Chrome para de pintar
+        features_off.append("CalculateNativeWinOcclusion")
+    options.add_argument(f"--disable-features={','.join(features_off)}")
     # Remove o flag "Chrome está sendo controlado por software de automação"
     options.add_argument("--disable-blink-features=AutomationControlled")
 
@@ -214,6 +311,19 @@ def apply_stealth(driver) -> None:
         }
         """,
     ]
+
+    if janela_oculta():
+        # Janela fora da tela fica "hidden" e com coordenadas negativas — o site da Amil
+        # trata isso como robô e devolve "nenhum prestador". Fingir janela visível.
+        scripts.append("""
+        Object.defineProperty(document, 'visibilityState', { get: () => 'visible', configurable: true });
+        Object.defineProperty(document, 'hidden',          { get: () => false,     configurable: true });
+        document.hasFocus = () => true;
+        Object.defineProperty(window, 'screenX',    { get: () => 0, configurable: true });
+        Object.defineProperty(window, 'screenY',    { get: () => 0, configurable: true });
+        Object.defineProperty(window, 'screenLeft', { get: () => 0, configurable: true });
+        Object.defineProperty(window, 'screenTop',  { get: () => 0, configurable: true });
+        """)
 
     try:
         for script in scripts:

@@ -31,7 +31,12 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
-from src.scraper.anti_bot import build_chrome_options, apply_stealth
+from src.scraper.anti_bot import (
+    build_chrome_options,
+    apply_stealth,
+    detectar_versao_chrome,
+    user_agent_para_versao,
+)
 from src.scraper.navegacao import aguardar_pagina_carregar
 from src.utils.delays import delay_humano
 
@@ -56,11 +61,9 @@ def extrair_cidades_do_site() -> Dict[str, List[str]]:
     print("🚀 Iniciando extração de cidades do site da Amil...")
     
     # Configurar Chrome
-    ua = random.choice([
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
-    ])
-    
+    versao_chrome = detectar_versao_chrome()
+    ua = user_agent_para_versao(versao_chrome)
+
     options = build_chrome_options(user_agent=ua, proxy=None)
     options.add_argument("--headless")  # Rodar em background
     options.add_argument("--window-size=1920,1080")
@@ -70,7 +73,7 @@ def extrair_cidades_do_site() -> Dict[str, List[str]]:
     
     try:
         print("🌐 Abrindo navegador...")
-        driver = uc.Chrome(options=options, use_subprocess=True, version_main=148)
+        driver = uc.Chrome(options=options, use_subprocess=True, version_main=versao_chrome)
         wait = WebDriverWait(driver, 25)
         wait_dropdown = WebDriverWait(driver, 15)
         

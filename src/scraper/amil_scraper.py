@@ -13,7 +13,13 @@ from selenium.webdriver.support import expected_conditions as EC
 
 from src.utils.delays import delay_humano
 from src.utils.file_manager import get_pdf_path, REDE_COMPLETA_DIR
-from src.scraper.anti_bot import build_chrome_options, apply_stealth
+from src.scraper.anti_bot import (
+    build_chrome_options,
+    apply_stealth,
+    detectar_versao_chrome,
+    user_agent_para_versao,
+    janela_oculta,
+)
 from src.scraper.navegacao import (
     aguardar_pagina_carregar,
 )
@@ -44,6 +50,7 @@ class AmilBot:
         self.pasta_base = pasta_base or REDE_COMPLETA_DIR
         self.logger = logger
         self.stop_flag = stop_flag  # 🔥 NOVO
+        self.gerar_pdf_vazio = True  # _passo3 gera o PDF "sem especialidade" (fluxo do main.py)
 
         self.driver = None
         self.wait: WebDriverWait | None = None
@@ -110,11 +117,61 @@ class AmilBot:
             except:
                 pass
 
+    def _mover_mouse_curva(self, x: float, y: float) -> None:
+        """
+        Leva o ponteiro até (x, y) — coordenadas do viewport — por uma curva de
+        Bézier com dezenas de pontos e aceleração/desaceleração.
+        O sensor do Akamai Bot Manager no site da Amil pontua a sessão pelos
+        mousemove: 2 saltos retos por clique (o que o ActionChains faz) é
+        assinatura de robô e leva a 403 na busca de prestadores.
+        """
+        from selenium.webdriver.common.actions.action_builder import ActionBuilder
+
+        largura, altura = self.driver.execute_script(
+            "return [window.innerWidth, window.innerHeight];"
+        )
+
+        def dentro(px, py):
+            return (min(max(int(px), 1), largura - 2), min(max(int(py), 1), altura - 2))
+
+        x0, y0 = getattr(self, "_mouse_pos", None) or (
+            random.randint(50, largura // 2), random.randint(50, altura // 2)
+        )
+        x, y = dentro(x, y)
+        dx, dy = x - x0, y - y0
+        c1 = (x0 + dx * random.uniform(0.2, 0.4) + random.randint(-90, 90),
+              y0 + dy * random.uniform(0.2, 0.4) + random.randint(-90, 90))
+        c2 = (x0 + dx * random.uniform(0.6, 0.8) + random.randint(-60, 60),
+              y0 + dy * random.uniform(0.6, 0.8) + random.randint(-60, 60))
+
+        passos = random.randint(22, 38)
+        ab = ActionBuilder(self.driver, duration=random.randint(8, 18))
+        for i in range(1, passos + 1):
+            t = i / passos
+            t = t * t * (3 - 2 * t)  # ease-in-out
+            bx = (1 - t) ** 3 * x0 + 3 * (1 - t) ** 2 * t * c1[0] + 3 * (1 - t) * t ** 2 * c2[0] + t ** 3 * x
+            by = (1 - t) ** 3 * y0 + 3 * (1 - t) ** 2 * t * c1[1] + 3 * (1 - t) * t ** 2 * c2[1] + t ** 3 * y
+            ab.pointer_action.move_to_location(*dentro(bx, by))
+        ab.perform()
+        self._mouse_pos = (x, y)
+
+    def _passear_mouse(self, vezes: int | None = None) -> None:
+        """Movimentos à toa pela página, como alguém lendo antes de clicar."""
+        try:
+            largura, altura = self.driver.execute_script(
+                "return [window.innerWidth, window.innerHeight];"
+            )
+            for _ in range(vezes or random.randint(1, 3)):
+                self._mover_mouse_curva(random.randint(80, largura - 80), random.randint(80, altura - 80))
+                self._sleep(random.uniform(0.2, 0.7))
+        except Exception:
+            pass
+
     def _clicar_humano(self, elemento, desvio: int = 4) -> None:
         """
-        Move o mouse de forma suave até o elemento e clica — sem execute_script.
+        Move o mouse em curva até o elemento e clica — sem execute_script.
         Gera a cadeia completa de eventos do mouse que um humano produziria:
-        mouseover → mousemove → mouseenter → mousedown → mouseup → click.
+        mousemove (vários) → mouseover → mouseenter → mousedown → mouseup → click.
         """
         from selenium.webdriver.common.action_chains import ActionChains
 
@@ -124,9 +181,43 @@ class AmilBot:
                 "arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});",
                 elemento
             )
-            self._sleep(random.uniform(0.15, 0.30))
+            self._sleep(random.uniform(0.3, 0.5))
         except Exception:
             pass
+
+        try:
+            js_rect = (
+                "const r = arguments[0].getBoundingClientRect();"
+                "return [r.left, r.top, r.width, r.height];"
+            )
+            # Em listas longas (157 cidades em MG, 239 em SP) a rolagem suave demora mais que
+            # um tempo fixo: medir no meio dela fazia o clique cair fora da cidade, nada era
+            # selecionado e o menu de Bairro nunca liberava. Esperar a posição parar de mudar.
+            r = self.driver.execute_script(js_rect, elemento)
+            for _ in range(20):
+                self._sleep(0.15)
+                r2 = self.driver.execute_script(js_rect, elemento)
+                if r2 == r:
+                    break
+                r = r2
+
+            alvo_x = r[0] + r[2] / 2 + random.uniform(-min(desvio, r[2] / 4), min(desvio, r[2] / 4))
+            alvo_y = r[1] + r[3] / 2 + random.uniform(-min(desvio, r[3] / 4), min(desvio, r[3] / 4))
+
+            # O ponto do clique precisa estar sobre o próprio elemento (não coberto/fora da lista)
+            no_alvo = self.driver.execute_script(
+                "const e = document.elementFromPoint(arguments[1], arguments[2]);"
+                "return !!e && (e === arguments[0] || arguments[0].contains(e));",
+                elemento, alvo_x, alvo_y,
+            )
+            if not no_alvo:
+                raise Exception("ponto do clique fora do elemento")
+
+            self._mover_mouse_curva(alvo_x, alvo_y)
+            ActionChains(self.driver).pause(random.uniform(0.08, 0.2)).click().perform()
+            return
+        except Exception:
+            pass  # cai no clique antigo abaixo
 
         try:
             actions = ActionChains(self.driver)
@@ -285,11 +376,10 @@ class AmilBot:
         else:
             perfil_temp = None
         
-        # UA deve ser consistente com version_main= para evitar mismatch detectável
-        ua = random.choice([
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
-        ])
+        # UA e version_main seguem o Chrome realmente instalado — versão diferente
+        # gera mismatch detectável (UA x navigator.userAgentData) e falha no driver
+        versao_chrome = detectar_versao_chrome()
+        ua = user_agent_para_versao(versao_chrome)
 
         proxy = self._escolher_proxy()
         if proxy:
@@ -297,21 +387,33 @@ class AmilBot:
         else:
             self._log("🌐 Conexão direta (sem proxy).")
 
-        options = build_chrome_options(user_agent=ua, proxy=proxy)
-        
         def get_fresh_options():
             options = build_chrome_options(user_agent=ua, proxy=proxy)
             if usar_perfil_temp and perfil_temp:
                 options.add_argument(f"--user-data-dir={perfil_temp}")
-            
+
             # Variação no viewport para parecer mais humano
             v_width = random.randint(1280, 1920)
             v_height = random.randint(720, 1080)
             options.add_argument(f"--window-size={v_width},{v_height}")
             return options
 
+        # AMIL_DRIVER_EXE: cópia exclusiva do chromedriver (ver preparar_driver_proprio)
+        driver_fixo = os.getenv("AMIL_DRIVER_EXE")
+        paralelo = os.getenv("AMIL_PARALELO") == "1"
+
+        def criar_driver(com_versao: bool):
+            kwargs = {"options": get_fresh_options(), "use_subprocess": True}
+            if com_versao and versao_chrome:
+                kwargs["version_main"] = versao_chrome
+            if com_versao and driver_fixo and os.path.exists(driver_fixo):
+                kwargs["driver_executable_path"] = driver_fixo
+            return uc.Chrome(**kwargs)
+
         # Funcoes de limpeza no fallback
         def limpar_processos_chrome():
+            if paralelo:
+                return  # mataria os navegadores dos outros processos
             try:
                 import subprocess
                 # Mata apenas o chromedriver do UC para não fechar o Chrome pessoal do usuário, 
@@ -322,6 +424,8 @@ class AmilBot:
                 pass
 
         def limpar_cache_uc():
+            if paralelo:
+                return  # apagaria o driver em uso pelos outros processos
             try:
                 import shutil
                 uc_dir = Path(os.getenv("APPDATA", "")) / "undetected_chromedriver"
@@ -331,40 +435,24 @@ class AmilBot:
             except:
                 pass
 
-        # 🔥 CORREÇÃO — Tentar inicializar com version_main=148 PRIMEIRO
         try:
-            self._log("🚀 Inicializando Chrome (tentativa 1: forçando version_main=148)...")
-            options = get_fresh_options()
-            self.driver = uc.Chrome(
-                options=options, 
-                use_subprocess=True,
-                version_main=148
-            )
+            self._log(f"🚀 Inicializando Chrome (versão detectada: {versao_chrome or 'desconhecida'})...")
+            self.driver = criar_driver(com_versao=True)
         except Exception as e:
-            self._log(f"⚠️ Erro na inicialização com v146: {e}")
+            self._log(f"⚠️ Erro na inicialização do Chrome v{versao_chrome}: {e}")
             self._log("🔄 Tentativa 2: Limpando processos órfãos e tentando novamente...")
-            
+
             limpar_processos_chrome()
             limpar_cache_uc()
             self._sleep(2.0)
-            
+
             try:
-                options = get_fresh_options()
-                self.driver = uc.Chrome(
-                    options=options, 
-                    use_subprocess=True,
-                    version_main=148
-                )
+                self.driver = criar_driver(com_versao=True)
             except Exception as e2:
                 self._log(f"⚠️ Erro na segunda tentativa: {e2}")
                 self._log("🔄 Tentativa final: Deixando UC resolver sem restrições...")
                 limpar_processos_chrome()
-                
-                options = get_fresh_options()
-                self.driver = uc.Chrome(
-                    options=options,
-                    use_subprocess=True
-                )
+                self.driver = criar_driver(com_versao=False)
         
         self.wait = WebDriverWait(self.driver, 25)
         self.wait_dropdown = WebDriverWait(self.driver, 15)
@@ -457,7 +545,7 @@ class AmilBot:
                 if tentativa < max_tentativas_carregar - 1:
                     # 🔥 NOVO — Pausa estratégica na segunda tentativa
                     if tentativa == 1:  # Segunda tentativa (índice 1)
-                        from utils.delays import pausa_estrategica
+                        from src.utils.delays import pausa_estrategica
                         self._log("⚠️ Segunda tentativa falhou - aplicando pausa estratégica...")
                         pausa_estrategica(self.stop_flag)
                     self._log("🔄 Tentando recarregar...")
@@ -478,11 +566,13 @@ class AmilBot:
         except:
             pass
 
-        try:
-            self.driver.maximize_window()
-            time.sleep(random.uniform(1.0, 2.0))
-        except:
-            pass
+        # Maximizar traria a janela oculta de volta para a tela
+        if not janela_oculta():
+            try:
+                self.driver.maximize_window()
+                time.sleep(random.uniform(1.0, 2.0))
+            except:
+                pass
         
         # Verificar bloqueio após abrir
         if self._verificar_bloqueio():
@@ -859,7 +949,9 @@ class AmilBot:
 
         if not op:
             self._log(f"⚠️ Especialidade não encontrada em {cidade}-{self.uf}")
-            gerar_pdf_sem_especialidade(self.uf, cidade, self.pasta_base)
+            # O scraper portátil gera os próprios PDFs em documentos/ — aqui só no fluxo do main.py
+            if self.gerar_pdf_vazio:
+                gerar_pdf_sem_especialidade(self.uf, cidade, self.pasta_base)
             raise Exception("Especialidade não encontrada")
 
         delay_humano(0.2, 0.45, self.stop_flag)
@@ -871,8 +963,8 @@ class AmilBot:
     # ------------------------------------------------------
     def _capturar(self) -> list[dict]:
         """
-        Tentativa REAL inicial (tempo padrão).
-        Se falhar, entra no retry com restart progressivo.
+        Clica em Buscar e extrai os prestadores.
+        Retorna [] se não vierem resultados — o retry fica no processar_cidade.
         """
         from selenium.webdriver.common.by import By
         from selenium.webdriver.common.keys import Keys
@@ -950,25 +1042,26 @@ class AmilBot:
             # 🔥 NOVO — Aguardar um pouco mais para JavaScript carregar
             time.sleep(2)
 
-            # 🔥 NOVO — Verificar se há mensagem de "sem resultados"
-            try:
-                # Verificar se aparece mensagem de "nenhum resultado encontrado"
-                mensagens_sem_resultado = [
-                    "//*[contains(text(), 'nenhum resultado')]",
-                    "//*[contains(text(), 'Nenhum resultado')]",
-                    "//*[contains(text(), 'não encontrado')]",
-                    "//*[contains(text(), 'Não encontrado')]",
-                ]
-                for xpath in mensagens_sem_resultado:
-                    try:
-                        elemento = self.driver.find_element(By.XPATH, xpath)
-                        if elemento.is_displayed():
-                            self._log("⚠️ Site retornou mensagem de 'sem resultados' - possível bloqueio detectado")
-                            raise Exception("Site retornou 'nenhum resultado' - provável bloqueio ou falha parcial. Tentando novamente...")
-                    except:
-                        pass
-            except:
-                pass
+            # Mensagem de "sem resultados" numa cidade com Clínica Geral = shadow block.
+            # (Antes o raise ficava dentro de um try/except: pass e era engolido.)
+            mensagens_sem_resultado = [
+                "//*[contains(text(), 'não localizou nenhum prestador')]",
+                "//*[contains(text(), 'nenhum resultado')]",
+                "//*[contains(text(), 'Nenhum resultado')]",
+                "//*[contains(text(), 'não encontrado')]",
+                "//*[contains(text(), 'Não encontrado')]",
+            ]
+            sem_resultado = False
+            for xpath in mensagens_sem_resultado:
+                try:
+                    if any(el.is_displayed() for el in self.driver.find_elements(By.XPATH, xpath)):
+                        sem_resultado = True
+                        break
+                except Exception:
+                    continue
+            if sem_resultado:
+                self._log("⚠️ Site retornou mensagem de 'sem resultados' - possível bloqueio detectado")
+                raise Exception("Site retornou 'nenhum resultado' - provável bloqueio ou falha parcial. Tentando novamente...")
 
             # 🔥 CORREÇÃO — Timeout menor e verificação de stop_flag
             try:
@@ -1073,13 +1166,6 @@ class AmilBot:
             if blocos:
                 self._log(f"✅ Resultados carregados na tentativa inicial ({len(blocos)} blocos).")
                 return self._extrair_prestadores(blocos)
-                
-                # 🔥 NOVO — Se a diferença entre blocos e prestadores for maior que 1, pode haver problema
-                diferenca = len(blocos) - len(prestadores)
-                if diferenca > 1:
-                    self._log(f"⚠️ Atenção: {diferenca} blocos não foram convertidos em prestadores (pode ser normal se houver elementos inválidos)")
-                
-                return prestadores
 
             # nenhum bloco, mas tentativa feita → cai para retry
             self._log("⚠️ Nenhum bloco encontrado na tentativa inicial.")
@@ -1096,41 +1182,9 @@ class AmilBot:
             
             self._log(f"⚠️ Tentativa inicial falhou: {e}")
 
-        # =====================================================================
-        # SE CHEGOU AQUI → iniciar ciclo de retry com restart
-        # =====================================================================
-        # 🔥 NOVO — Verificar timeout máximo antes de iniciar retry
-        if time_module.time() - inicio_captura > timeout_maximo_total:
-            self._log("⏱️ Timeout máximo atingido - não fazendo mais tentativas")
-            return []
-        
-        # 🔥 NOVO — Verificar stop_flag antes de iniciar retry
-        if self.stop_flag and self.stop_flag.is_set():
-            raise Exception("Execução interrompida pelo usuário")
-        
-        self._log("🔁 Iniciando tentativas com restart progressivo...")
-
-        from selenium.webdriver.common.by import By
-
-        tentativas = [15, 25, 45, 60]  # 🔥 Aumentado tempos de espera
-
-        for idx, espera in enumerate(tentativas, start=1):
-            # 🔥 NOVO — Pausa estratégica na segunda tentativa (quando não há resultados)
-            if idx == 2:  # Segunda tentativa
-                from utils.delays import pausa_estrategica
-                self._log("⚠️ Segunda tentativa sem resultados - aplicando pausa estratégica...")
-                pausa_estrategica(self.stop_flag)
-            
-            # 🔥 NOVO — Verificar timeout máximo antes de cada tentativa
-            if time_module.time() - inicio_captura > timeout_maximo_total:
-                self._log(f"⏱️ Timeout máximo atingido após {idx-1} tentativas")
-                return []
-            
-            # 🔥 NOVO — Verificar stop_flag antes de cada tentativa
-            if self.stop_flag and self.stop_flag.is_set():
-                raise Exception("Execução interrompida pelo usuário")
-            
-            # ... resto do código de retry ...
+        # Sem resultados: lista vazia faz o processar_cidade fechar o navegador,
+        # esperar e tentar de novo com um Chrome limpo (até 3 vezes).
+        return []
 
 
     def _extrair_prestadores(self, blocos):
