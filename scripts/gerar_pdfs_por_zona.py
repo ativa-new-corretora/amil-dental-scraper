@@ -122,6 +122,9 @@ def ler_prestadores(pdf_path: Path) -> tuple[list[dict], int | None]:
     doc = fitz.open(pdf_path)
     texto = "".join(pagina.get_text() for pagina in doc)
     doc.close()
+    # O "Referência: <mês>" do canto da página sai no fim do texto da página 1 e
+    # grudava telefone + referência no endereço do prestador anterior.
+    texto = re.sub(r"^Refer[êe]ncia:.*$\n?", "", texto, flags=re.M)
 
     achado = PADRAO_TOTAL.search(texto)
     total_cabecalho = int(achado.group(1)) if achado else None

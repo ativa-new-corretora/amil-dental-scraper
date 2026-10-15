@@ -916,6 +916,29 @@ class AmilBot:
             raise Exception(f"Erro ao clicar em botão continuar: {e}")
 
         delay_humano(0.7, 1.4, self.stop_flag)
+        self._conferir_local(cidade)
+
+    def _conferir_local(self, cidade: str) -> None:
+        """
+        Trava de segurança: confere no resumo do Passo 2 ("JUIZ DE FORA (MG) - TODOS
+        OS BAIRROS") que o site ficou com a cidade e o bairro pedidos.
+        Um clique que caiu na cidade vizinha da lista gerou PDFs com o nome de uma
+        cidade e os prestadores de outra (ex.: Juiz de Fora com a lista de Lagamar).
+        """
+        esperado = f"{cidade} ({self.uf}) - TODOS OS BAIRROS".upper()
+        fim = time.time() + 10
+        texto = ""
+        while time.time() < fim:
+            try:
+                texto = self.driver.find_element(By.TAG_NAME, "body").text.upper()
+            except Exception:
+                texto = ""
+            if esperado in texto:
+                return
+            self._sleep(0.5)
+
+        achado = next((l.strip() for l in texto.splitlines() if f"({self.uf})" in l), "não encontrado")
+        raise Exception(f"Local selecionado não confere: esperado '{esperado}', site mostra '{achado}'")
 
     # ------------------------------------------------------
     #                     PASSO 3
@@ -957,6 +980,27 @@ class AmilBot:
         delay_humano(0.2, 0.45, self.stop_flag)
         self._clicar_humano(op)
         delay_humano(0.55, 1.1, self.stop_flag)
+        self._conferir_especialidade()
+
+    def _conferir_especialidade(self) -> None:
+        """
+        Trava de segurança: o campo Especialidade precisa mostrar CLINICA GERAL.
+        Um clique na opção vizinha traria prestadores de outra especialidade
+        na cidade certa — erro que nenhuma comparação posterior consegue detectar.
+        """
+        xpath = ("//label[contains(text(),'Especialidade')]"
+                 "/following::*[contains(@class,'rw-dropdown-list') or contains(@class,'rw-widget')][1]")
+        valor = ""
+        fim = time.time() + 5
+        while time.time() < fim:
+            try:
+                valor = self.driver.find_element(By.XPATH, xpath).text.strip().upper()
+            except Exception:
+                valor = ""
+            if "CLINICA GERAL" in valor or "CLÍNICA GERAL" in valor:
+                return
+            self._sleep(0.5)
+        raise Exception(f"Especialidade selecionada não confere: site mostra '{valor or 'vazio'}'")
 
     # ------------------------------------------------------
     #          BUSCAR + CAPTURAR RESULTADOS
