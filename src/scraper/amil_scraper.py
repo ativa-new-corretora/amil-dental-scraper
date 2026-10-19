@@ -952,25 +952,30 @@ class AmilBot:
         self._clicar_humano(btn)
         delay_humano(0.4, 0.9, self.stop_flag)
 
-        w.until(EC.presence_of_element_located((By.XPATH, "//ul[contains(@id,'listbox')]//li")))
-
-        candidatos = [
-            "//li[text()='CLINICA GERAL']",
-            "//li[contains(text(),'CLÍNICA GERAL')]",
-            "//li[contains(text(),'CLINICA GERAL')]",
-        ]
-
+        # Espera a lista de especialidades carregar de verdade: só conclui que a
+        # cidade não tem Clínica Geral depois que a lista parou de mudar por 3s.
+        # Um tempo fixo curto gerava PDF "sem Clínica Geral" quando a API demorava.
+        xp_itens = "//ul[contains(@id,'listbox')]//li"
+        xp_cg = ("//ul[contains(@id,'listbox')]//li[contains(text(),'CLINICA GERAL') "
+                 "or contains(text(),'CLÍNICA GERAL')]")
         op = None
-        for xp in candidatos:
-            try:
-                op = WebDriverWait(self.driver, 2).until(
-                    EC.element_to_be_clickable((By.XPATH, xp))
-                )
+        fim = time.time() + 60
+        ultimo, estavel_desde = None, time.time()
+        while time.time() < fim:
+            achados = [e for e in self.driver.find_elements(By.XPATH, xp_cg) if e.is_displayed()]
+            if achados:
+                op = achados[0]
                 break
-            except:
-                continue
+            itens = [e.text.strip() for e in self.driver.find_elements(By.XPATH, xp_itens)]
+            carregando = not itens or any(not t or "carregando" in t.lower() for t in itens)
+            if itens != ultimo or carregando:
+                ultimo, estavel_desde = itens, time.time()
+            elif time.time() - estavel_desde >= 3:
+                break
+            self._sleep(0.3)
 
         if not op:
+            self._log(f"Lista de especialidades em {cidade}-{self.uf}: {ultimo}")
             self._log(f"⚠️ Especialidade não encontrada em {cidade}-{self.uf}")
             # O scraper portátil gera os próprios PDFs em documentos/ — aqui só no fluxo do main.py
             if self.gerar_pdf_vazio:

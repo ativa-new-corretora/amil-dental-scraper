@@ -557,8 +557,8 @@ def main():
 
     # Segunda passada nas que falharam, depois de um respiro para o anti-robô esfriar
     if falhas:
-        print(f"\n{len(falhas)} cidades falharam. Aguardando 10 min e tentando de novo...", flush=True)
-        time.sleep(600)
+        print(f"\n{len(falhas)} cidades falharam. Aguardando 1 min e tentando de novo...", flush=True)
+        time.sleep(60)
         falhas = _rodar_lista(falhas, args.mes, logger, "2a passada")
 
     caminho_falhas = LOGS_DIR / f"falhas{sufixo}.json"
