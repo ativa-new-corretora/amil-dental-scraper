@@ -81,6 +81,18 @@ Get-Content documentos\logs\execucao.log -Wait -Tail 20 -Encoding UTF8
 
 ---
 
+## Rede Amil Saúde
+
+Script separado do Dental para a rede de **saúde** (plano, cidades e categorias em `config/saude_prata_qc.json`). Gera um JSON por cidade e a planilha `documentos/saude/prata_qc/rede_saude_prata_qc.xlsx`. Mapeamento do site, estratégia e limitações em [REDE_SAUDE.md](REDE_SAUDE.md).
+
+```powershell
+.\venv\Scripts\python.exe -u scripts/amil_saude.py --listar   # o que será buscado, sem navegador
+$env:AMIL_JANELA_OCULTA = "1"
+.\venv\Scripts\python.exe -u scripts/amil_saude.py            # coleta (pula cidades já coletadas)
+```
+
+---
+
 ## Extração Completa (main.py)
 
 Roda o scraping de todas as cidades via `main.py`. Salva progresso e retoma de onde parou. Gera PDFs em `docs/pdfs/`.
@@ -230,10 +242,12 @@ python build_exe.py
 ├── config/
 │   ├── estados_cidades_amil.json   # Lista completa de cidades (~968)
 │   ├── cidades_estrategicas.json   # Capitais + grandes cidades (~112)
-│   └── zonas_bairros.json          # Mapa bairro → zona (SP: 297, RJ: 87)
+│   ├── zonas_bairros.json          # Mapa bairro → zona (SP: 297, RJ: 87)
+│   └── saude_prata_qc.json         # Rede Saúde: plano, cidades e categorias
 ├── src/
 │   ├── scraper/
 │   │   ├── amil_scraper.py         # Bot Selenium (3 tentativas, shadow block aware)
+│   │   ├── amil_saude.py           # Saúde: API dos menus + AmilSaudeBot (subclasse do AmilBot)
 │   │   ├── anti_bot.py             # Anti-detecção (stealth, canvas noise, WebGL)
 │   │   └── navegacao.py
 │   ├── pdf/
@@ -247,6 +261,7 @@ python build_exe.py
 │       └── app.py                  # Dashboard Flask
 ├── scripts/
 │   ├── amil_portable.py            # Scraper portátil (uso principal)
+│   ├── amil_saude.py               # Rede Amil Saúde (ver REDE_SAUDE.md)
 │   ├── extrair_cidades.py          # Atualiza JSON de cidades
 │   ├── comparar_cidades.py         # Compara JSON vs PDFs
 │   ├── limpar_pdfs_obsoletos.py    # Remove PDFs de cidades removidas
