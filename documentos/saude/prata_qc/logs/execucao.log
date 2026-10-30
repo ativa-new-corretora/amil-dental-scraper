@@ -1,0 +1,40 @@
+[2026-10-29 13:34:27] [INFO] ============================================================
+[2026-10-29 13:34:27] [INFO] AMIL SAÚDE — plano Prata QC (codigoRede 1078) — 24 cidades
+[2026-10-29 13:34:27] [INFO] ============================================================
+[2026-10-29 13:34:29] [INFO] [1/24] 13:34 Várzea Grande-MT
+[2026-10-29 13:34:30] [INFO]   VARZEA GRANDE-MT: 15 consultas...
+[2026-10-29 13:40:23] [INFO]   VARZEA GRANDE-MT: OK — GINECOLOGIA: 0, CARDIOLOGIA: 0, LABORATORIOS: 3, HOSPITAIS / PRONTO-SOCORRO: 2 (descartados de outro município: 22)
+[2026-10-29 13:40:28] [INFO] [2/24] 13:40 Recife-PE
+[2026-10-29 13:40:30] [INFO]   RECIFE-PE: 40 consultas...
+[2026-10-29 13:45:35] [INFO]     T1 bloqueio Akamai: 403 em HOSPITAIS - CIRURGIA DO APARELHO DIGESTIVO POR VIDEOLAPAROSCOPIA — 12/40 feitas, nova tentativa em 63s
+[2026-10-29 13:52:32] [INFO]     T2 bloqueio Akamai: 403 em HOSPITAIS - TRANSPLANTE DE MEDULA OSSEA — 26/40 feitas, nova tentativa em 60s
+[2026-10-29 13:57:40] [INFO]   RECIFE-PE: FALHA (35/40 consultas, parcial guardado): 403 em PRONTO SOCORRO ONCOLOGICO
+[2026-10-29 13:57:40] [INFO]   Pausa de 15 min para o anti-robô esfriar (13:57)...
+[2026-10-29 22:43:43] [INFO] ============================================================
+[2026-10-29 22:43:43] [INFO] AMIL SAÚDE — plano Prata QC (codigoRede 1078) — 24 cidades
+[2026-10-29 22:43:43] [INFO] ============================================================
+[2026-10-29 22:43:46] [INFO] [1/24] 22:43 Várzea Grande-MT
+[2026-10-29 22:43:46] [INFO]   VARZEA GRANDE-MT: já coletada (OK) — pulando (use --forcar para refazer)
+[2026-10-29 22:43:50] [INFO] [2/24] 22:43 Recife-PE
+[2026-10-29 22:43:52] [INFO]   RECIFE-PE: 40 consultas (retomando: 35 já feitas)...
+[2026-10-29 22:44:53] [INFO]     T1 bloqueio Akamai: 403 em PRONTO SOCORRO ONCOLOGICO — 35/40 feitas (+0), nova tentativa em 73s
+[2026-10-29 22:47:22] [INFO]     T2 bloqueio Akamai: 403 em PRONTO SOCORRO ORTOPEDICO — 36/40 feitas (+1), nova tentativa em 103s
+[2026-10-29 22:50:00] [INFO]     T3 bloqueio Akamai: 403 em PRONTO SOCORRO ORTOPEDICO — 36/40 feitas (+0), nova tentativa em 83s
+[2026-10-29 22:52:32] [INFO]     T4 bloqueio Akamai: 403 em PRONTO SOCORRO ORTOPEDICO — 36/40 feitas (+0), nova tentativa em 102s
+[2026-10-29 22:55:09] [INFO]   RECIFE-PE: FALHA (36/40 consultas, parcial guardado): 403 em PRONTO SOCORRO ORTOPEDICO
+[2026-10-29 22:55:09] [INFO]   Pausa de 15 min para o anti-robô esfriar (22:55)...
+[2026-10-29 23:10:09] [INFO] [3/24] 23:10 Curitiba-PR
+[2026-10-29 23:10:11] [INFO]   CURITIBA-PR: 42 consultas...
+[2026-10-29 23:11:06] [INFO]     T1 bloqueio Akamai: 403 em GINECOLOGIA — 0/42 feitas (+0), nova tentativa em 107s
+[2026-10-29 23:14:13] [INFO]     T2 bloqueio Akamai: 403 em GINECOLOGIA E OBSTETRICIA — 1/42 feitas (+1), nova tentativa em 116s
+[2026-10-29 23:17:05] [INFO]     T3 bloqueio Akamai: 403 em GINECOLOGIA E OBSTETRICIA — 1/42 feitas (+0), nova tentativa em 116s
+[2026-10-29 23:20:00] [INFO]     T4 bloqueio Akamai: 403 em GINECOLOGIA E OBSTETRICIA — 1/42 feitas (+0), nova tentativa em 68s
+[2026-10-29 23:22:08] [INFO]   CURITIBA-PR: FALHA (1/42 consultas, parcial guardado): 403 em GINECOLOGIA E OBSTETRICIA
+[2026-10-29 23:22:08] [INFO]   Pausa de 15 min para o anti-robô esfriar (23:22)...
+[2026-10-30 00:18:03] [INFO] ============================================================
+[2026-10-30 00:18:03] [INFO] AMIL SAÚDE — plano Prata QC (codigoRede 1078) — 24 cidades
+[2026-10-30 00:18:03] [INFO] ============================================================
+[2026-10-30 00:18:06] [INFO] [1/24] 00:18 Várzea Grande-MT
+[2026-10-30 00:18:08] [INFO]   VARZEA GRANDE-MT: 15 consultas...
+[2026-10-30 00:19:47] [INFO]     T1 bloqueio Akamai: 403 em CARDIOLOGIA — 2/15 feitas (+2), nova tentativa em 91s
+[2026-10-30 00:22:19] [INFO]     T2 bloqueio Akamai: 403 em CARDIOLOGIA — 2/15 feitas (+0), nova tentativa em 84s
