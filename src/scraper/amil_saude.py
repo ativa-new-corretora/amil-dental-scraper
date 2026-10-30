@@ -371,28 +371,33 @@ def _cep(cep) -> str:
     return f"{d[:5]}-{d[5:]}" if d.strip("0") else ""
 
 
-def consolidar(uf: str, municipio: str, consultas: list[dict], feitas: dict) -> tuple[list[dict], dict]:
+def consolidar(uf: str, municipio: str, consultas: list[dict], feitas: dict) -> tuple[list[dict], dict, list[dict]]:
     """
     Junta as respostas por categoria. A busca por município devolve também
-    prestadores de cidades vizinhas (ex.: Olinda na busca de Recife): só ficam
-    os endereços no município pedido. O mesmo prestador/endereço que aparece
-    em várias especialidades da categoria vira uma linha só.
-    Retorna (linhas, {municipio: endereços descartados}).
+    prestadores de cidades vizinhas (ex.: Olinda na busca de Recife): esses
+    endereços ficam fora das linhas da cidade e vão para uma lista à parte.
+    O mesmo prestador/endereço que aparece em várias especialidades da
+    categoria vira uma linha só.
+    Retorna (linhas, {municipio: endereços descartados}, linhas_vizinhas).
     """
     linhas: dict[tuple, dict] = {}
+    vizinhas: dict[tuple, dict] = {}
     fora = set()
     for c in consultas:
         for p in feitas.get((c["tipo"], c["especialidade"]), []):
             for e in p.get("enderecoRedeCredenciada") or []:
-                if normalizar(e.get("municipio") or "") != normalizar(municipio) or (e.get("uf") or uf) != uf:
-                    fora.add((f"{e.get('municipio')}-{e.get('uf')}", p.get("codigoInterno"), _endereco(e)))
-                    continue
+                mun_e, uf_e = (e.get("municipio") or "").strip(), e.get("uf") or uf
+                destino = linhas
+                if normalizar(mun_e) != normalizar(municipio) or uf_e != uf:
+                    fora.add((f"{mun_e}-{uf_e}", p.get("codigoInterno"), _endereco(e)))
+                    destino = vizinhas
                 chave = (c["categoria"], p.get("codigoInterno"), _cep(e.get("cep")), _endereco(e))
-                linha = linhas.get(chave)
+                linha = destino.get(chave)
                 if not linha:
-                    linha = linhas[chave] = {
-                        "uf": uf,
-                        "municipio": municipio,
+                    linha = destino[chave] = {
+                        "uf": uf_e,
+                        "municipio": municipio if destino is linhas else normalizar(mun_e),
+                        "cidade_pesquisada": f"{municipio}-{uf}",
                         "categoria": c["categoria"],
                         "prestador": re.sub(r"\s+", " ", (p.get("nomePrestador") or "").strip()),
                         "bairro": (e.get("bairroRedeCredenciada") or p.get("bairro") or "").strip(),
@@ -408,13 +413,15 @@ def consolidar(uf: str, municipio: str, consultas: list[dict], feitas: dict) -> 
                     }
                 linha["tipos_servico"].add(c["tipo"])
                 linha["especialidades"].add(c["especialidade"])
-    resultado = []
-    for l in linhas.values():
-        l["tipos_servico"] = "; ".join(sorted(l["tipos_servico"]))
-        l["especialidades"] = "; ".join(sorted(l["especialidades"]))
-        resultado.append(l)
-    resultado.sort(key=lambda l: (l["categoria"], l["bairro"], l["prestador"]))
+    def _fechar(grupo: dict, ordem) -> list[dict]:
+        for l in grupo.values():
+            l["tipos_servico"] = "; ".join(sorted(l["tipos_servico"]))
+            l["especialidades"] = "; ".join(sorted(l["especialidades"]))
+        return sorted(grupo.values(), key=ordem)
+
+    resultado = _fechar(linhas, lambda l: (l["categoria"], l["bairro"], l["prestador"]))
+    resultado_viz = _fechar(vizinhas, lambda l: (l["categoria"], l["municipio"], l["bairro"], l["prestador"]))
     por_municipio: dict[str, int] = {}
     for m, *_ in fora:
         por_municipio[m] = por_municipio.get(m, 0) + 1
-    return resultado, dict(sorted(por_municipio.items(), key=lambda x: -x[1]))
+    return resultado, dict(sorted(por_municipio.items(), key=lambda x: -x[1])), resultado_viz

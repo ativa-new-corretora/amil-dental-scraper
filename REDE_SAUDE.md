@@ -30,7 +30,7 @@ Get-Content documentos\saude\prata_qc\logs\execucao.log -Wait -Tail 20 -Encoding
 Saída (fora do git, em `documentos/`):
 
 - `documentos/saude/prata_qc/cidades/<UF>/<CIDADE>-<UF>.json`: resultado de cada cidade, com status, consultas feitas e total que a API devolveu em cada uma
-- `documentos/saude/prata_qc/rede_saude_prata_qc.xlsx`: aba **Resumo** (cidade × categoria) e uma aba por categoria (UF, Cidade, Prestador, Bairro, Endereço, CEP, Telefones, WhatsApp, Especialidades, Tipo de serviço, Em descredenciamento, Código Amil)
+- `documentos/saude/prata_qc/rede_saude_prata_qc.xlsx`: aba **Resumo** (cidade × categoria), uma aba por categoria (UF, Cidade, Prestador, Bairro, Endereço, CEP, Telefones, WhatsApp, Especialidades, Tipo de serviço, Em descredenciamento, Código Amil) e a aba **Cidades vizinhas** (as mesmas colunas, mais a cidade pesquisada e a categoria)
 - `documentos/saude/prata_qc/parciais/`: respostas já obtidas de uma cidade ainda incompleta; são apagadas quando a cidade termina
 - `documentos/saude/prata_qc/logs/`: `execucao.log` (uma linha por cidade), `bot.log` (detalhe do navegador), `falhas.json`
 - `documentos/saude/debug/`: print e HTML quando uma busca fica sem resposta
@@ -90,10 +90,10 @@ A resposta é uma lista de prestadores (`nomePrestador`, `codigoInterno`, `emDes
 
 - **Brodowski e Rancharia (SP) não aparecem na lista de municípios do Prata QC** no site. Vão para o Resumo como `SEM REDE NO PLANO`.
 - **Tatuí (SP)** só tem Laboratórios no plano, e **Araçoiaba da Serra (SP)** não tem hospital nem pronto-socorro. O Resumo mostra 0 e o motivo na coluna Observações.
-- **Prestadores de outra cidade.** A busca por município também devolve endereços de cidades vizinhas (por exemplo, Olinda na busca de Recife). Ficam só os endereços no município pedido. O Resumo mostra quantos foram descartados e de quais municípios. Em cidades pequenas isso pesa: em **Ribeirão Pires** todos os hospitais e prontos-socorros que o site lista ficam em outras cidades, então a categoria sai com 0. Se preferir a lista como o site mostra, com as vizinhas incluídas, é uma mudança de uma linha em `consolidar()`.
+- **Prestadores de outra cidade.** A busca por município também devolve endereços de cidades vizinhas (por exemplo, Olinda na busca de Recife). As abas de categoria ficam só com os endereços no município pedido. Os das cidades vizinhas vão para a aba **Cidades vizinhas**, com a cidade pesquisada e a categoria, e o Resumo mostra quantos são e de quais municípios. Em cidades pequenas isso pesa: em **Ribeirão Pires** todos os hospitais e prontos-socorros que o site lista ficam em outras cidades, e em **Várzea Grande** todos os ginecologistas e cardiologistas. Nesses casos a categoria sai com 0 na aba da cidade, e os prestadores aparecem em Cidades vizinhas.
 - **Tempo.** São ~640 consultas pela tela, cerca de **25 s cada** (medido): **4 a 5 h** para as 24 cidades, sem contar as pausas por bloqueio. Quase metade vem de "Hospitais / Pronto-Socorro" com `"*"`. Para acelerar, troque o `"*"` por especialidades específicas, por exemplo `HOSPITAIS GERAIS` e `MATERNIDADES`.
 - **Bloqueio (Akamai).** É o mesmo do Dental, e o IP é o mesmo: rodar a Saúde também desgasta o IP para o Dental. No teste em São Paulo a 1ª sessão fez 19 consultas antes do 403, e a 2ª fez 9. Como o script reage:
-  - um 403 descarta a sessão, espera de 1 a 2 min e abre um Chrome novo, até 3 vezes por cidade;
+  - um 403 descarta a sessão, espera de 1 a 2 min e abre um Chrome novo. Enquanto cada sessão trouxer ao menos uma consulta nova, continua (até 15 sessões por cidade); só desiste depois de 3 sessões seguidas sem avanço, que é o sinal de IP marcado. Na 1ª execução (29/10) cada sessão rendeu 12 a 14 consultas, e o limite antigo de 3 sessões por cidade fez Recife falhar com 35 de 40 feitas;
   - cada resposta é gravada em `documentos/saude/prata_qc/parciais/` assim que chega, e a nova tentativa continua da consulta seguinte;
   - se a cidade falhar, o script faz uma pausa de `--pausa` minutos (padrão 15) antes da próxima, e as que falharam ganham uma 2ª passada no fim;
   - rodar de novo retoma pelos parciais; `--forcar` descarta tudo e recomeça.

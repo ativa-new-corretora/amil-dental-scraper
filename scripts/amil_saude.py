@@ -38,6 +38,8 @@ from src.scraper.anti_bot import preparar_driver_proprio
 from src.utils.logger import setup_logger
 
 CONFIG_PADRAO = RAIZ / "config" / "saude_prata_qc.json"
+SESSOES_SEM_AVANCO = 3  # sessões seguidas sem consulta nova = IP marcado, desiste da cidade
+MAX_SESSOES = 15        # teto de Chromes por cidade, mesmo com avanço
 
 COLUNAS = {
     "uf": "UF", "municipio": "Cidade", "prestador": "Prestador", "bairro": "Bairro",
@@ -126,8 +128,13 @@ def processar_cidade(plano, uf, nome, municipios_uf, categorias, saida, forcar, 
     feitas = {k: v for k, v in feitas.items() if any((c["tipo"], c["especialidade"]) == k for c in consultas)}
     retomada = f" (retomando: {len(feitas)} já feitas)" if feitas else ""
     log.info(f"  {municipio}-{uf}: {len(consultas)} consultas{retomada}...")
+    # Cada sessão do Chrome rende ~12-14 buscas antes do 403, então uma cidade grande precisa
+    # de várias sessões. Só desiste quando 3 sessões seguidas não trazem nenhuma consulta nova
+    # (aí o IP está marcado e vale a pausa longa); MAX_SESSOES evita laço sem fim.
     erro = ""
-    for tentativa in range(1, 4):
+    sem_avanco = 0
+    for tentativa in range(1, MAX_SESSOES + 1):
+        antes = len(feitas)
         try:
             coletar_cidade(plano, uf, municipio, consultas, feitas, logger=log_bot,
                            ao_concluir=lambda f: _gravar_parcial(parcial, f))
@@ -135,12 +142,14 @@ def processar_cidade(plano, uf, nome, municipios_uf, categorias, saida, forcar, 
             break
         except Exception as e:
             erro = str(e).splitlines()[0][:150] if str(e) else type(e).__name__
-            if tentativa == 3:
+            sem_avanco = 0 if len(feitas) > antes else sem_avanco + 1
+            if sem_avanco >= SESSOES_SEM_AVANCO or tentativa == MAX_SESSOES:
                 break
             bloqueio = isinstance(e, Bloqueio)
             espera = random.uniform(60, 120) if bloqueio else random.uniform(8, 15)
             log.info(f"    T{tentativa} {'bloqueio Akamai' if bloqueio else 'erro'}: {erro[:80]} — "
-                     f"{len(feitas)}/{len(consultas)} feitas, nova tentativa em {espera:.0f}s")
+                     f"{len(feitas)}/{len(consultas)} feitas (+{len(feitas) - antes}), "
+                     f"nova tentativa em {espera:.0f}s")
             time.sleep(espera)
 
     if erro:
@@ -148,12 +157,13 @@ def processar_cidade(plano, uf, nome, municipios_uf, categorias, saida, forcar, 
                  f"parcial guardado): {erro}")
         return False
 
-    linhas, fora = consolidar(uf, municipio, consultas, feitas)
+    linhas, fora, vizinhas = consolidar(uf, municipio, consultas, feitas)
     por_categoria = {c: sum(1 for l in linhas if l["categoria"] == c) for c in categorias}
     _salvar(arquivo, {
         **base, "municipio": municipio, "status": "OK", "avisos": avisos,
         "consultas": [{**c, "total_api": len(feitas[(c["tipo"], c["especialidade"])])} for c in consultas],
         "enderecos_outro_municipio": sum(fora.values()), "outros_municipios": fora, "por_categoria": por_categoria, "prestadores": linhas,
+        "prestadores_vizinhos": vizinhas,
     })
     parcial.unlink(missing_ok=True)
     resumo = ", ".join(f"{c}: {n}" for c, n in por_categoria.items())
@@ -168,7 +178,7 @@ def gerar_planilha(saida: Path, plano_nome: str, categorias: list[str], cidades_
         d = json.loads(arq.read_text(encoding="utf-8"))
         por_cidade[(d["uf"], normalizar(d["cidade_config"]))] = d
 
-    resumo, linhas = [], []
+    resumo, linhas, vizinhas = [], [], []
     for uf, nome in cidades_config:
         d = por_cidade.get((uf, normalizar(nome)))
         item = {"UF": uf, "Cidade": d["municipio"] if d else normalizar(nome),
@@ -181,6 +191,7 @@ def gerar_planilha(saida: Path, plano_nome: str, categorias: list[str], cidades_
         resumo.append(item)
         if d:
             linhas.extend(d.get("prestadores", []))
+            vizinhas.extend(d.get("prestadores_vizinhos", []))
 
     destino = saida / f"rede_saude_{_slug(plano_nome)}.xlsx"
     with pd.ExcelWriter(destino, engine="openpyxl") as xw:
@@ -190,6 +201,10 @@ def gerar_planilha(saida: Path, plano_nome: str, categorias: list[str], cidades_
             df = df.drop(columns="categoria").rename(columns=COLUNAS)
             # "/" não é permitido em nome de aba do Excel
             df.to_excel(xw, sheet_name=c.replace("/", "-")[:31], index=False)
+        # Prestadores que a busca da cidade devolveu, mas com endereço em município vizinho
+        col_viz = {"cidade_pesquisada": "Cidade pesquisada", "categoria": "Categoria", **COLUNAS}
+        pd.DataFrame(vizinhas, columns=list(col_viz)).rename(columns=col_viz).to_excel(
+            xw, sheet_name="Cidades vizinhas", index=False)
         for ws in xw.book.worksheets:
             ws.auto_filter.ref = ws.dimensions
             ws.freeze_panes = "A2"
